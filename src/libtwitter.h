@@ -28,6 +28,8 @@ typedef struct{
     const char *user;
     const char *pass;
     const char *source;
+    char res_dir[PATH_MAX];
+    char images_dir[PATH_MAX];
     unsigned long last_friends_timeline;
     int fetch_interval;
     int show_interval;
@@ -62,3 +64,6 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader);
 
 void twitter_statuses_free(GList *statuses);
 void twitter_status_print(twitter_status_t *status);
+
+int twitter_fetch_images(twitter_t *twitter, GList *statuses);
+int twitter_fetch_image(twitter_t *twitter, const char *url, char* path);

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 #include <glib.h>
 #include <curl/curl.h>
 #include <libxml/xmlreader.h>
@@ -32,6 +33,12 @@
 twitter_t* twitter_new()
 {
     twitter_t *twitter;
+    const char *home;
+
+    home = getenv("HOME");
+    if(!home)
+        return NULL;
+
     twitter = (twitter_t *)malloc(sizeof(twitter_t));
     twitter->base_uri = TWITTER_BASE_URI;
     twitter->user = NULL;
@@ -41,6 +48,9 @@ twitter_t* twitter_new()
     twitter->fetch_interval = 60;
     twitter->show_interval = 5;
     twitter->debug = 0;
+    snprintf(twitter->res_dir, PATH_MAX, "%s/.xtwitter", home);
+    snprintf(twitter->images_dir, PATH_MAX, "%s/.xtwitter/images", home);
+
     return twitter;
 }
 
@@ -138,14 +148,14 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     char userpass[256];
     snprintf(userpass, 256, "%s:%s", twitter->user, twitter->pass);
     curl = curl_easy_init();
-    if(!curl) {
-        printf("error: curl_easy_init()\n");
+    if(!curl){
+        fprintf(stderr, "error: curl_easy_init()\n");
         return -1;
     }
 
     curl_easy_setopt(curl, CURLOPT_URL, apiuri);
-    //curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    //curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
     curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
@@ -153,12 +163,12 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
 
     code = curl_easy_perform(curl);
     if(code){
-        printf("error: %s\n", curl_easy_strerror(code));
+        fprintf(stderr, "error: %s\n", curl_easy_strerror(code));
         return -1;
     }
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
     if(res != 200){
-        printf("error respose code: %ld\n", res);
+        fprintf(stderr, "error respose code: %ld\n", res);
         return res;
     }
 
@@ -200,8 +210,8 @@ int twitter_update(twitter_t *twitter, const char *status)
                  CURLFORM_END);
 
     curl_easy_setopt(curl, CURLOPT_URL, api_uri);
-    //curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    //curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
     curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
@@ -379,7 +389,6 @@ void twitter_statuses_free(GList *statuses){
         if(!status){
             continue;
         }
-//        twitter_print_status(status);
         free((void*)(status->created_at));
         free((void*)(status->id));
         free((void*)(status->text));
@@ -393,4 +402,98 @@ void twitter_statuses_free(GList *statuses){
         free(status);
     }while((l = g_list_next(l)));
     g_list_free(statuses);
+}
+
+int twitter_image_name(twitter_status_t *status, char *name){
+    size_t i;
+    i = strlen(status->user->profile_image_url);
+    while(i--)
+        if(status->user->profile_image_url[i] == '/')
+            break;
+    while(i--)
+        if(status->user->profile_image_url[i] == '/')
+            break;
+    i++;
+    strncpy(name, status->user->profile_image_url + i, PATH_MAX - 1);
+    i = strlen(name);
+    while(i--)
+        if(name[i] == '/')
+            name[i] = '_';
+    return 0;
+}
+
+int twitter_fetch_images(twitter_t *twitter, GList *statuses){
+    int ret;
+    twitter_status_t *status;
+    const char *url;
+    char name[PATH_MAX];
+    char path[PATH_MAX];
+    struct stat st;
+
+    statuses = g_list_last(statuses);
+    if(!statuses){
+        return 0;
+    }
+    ret = mkdir(twitter->images_dir, 0755);
+    if(ret && errno != EEXIST){
+        fprintf(stderr, "can't create directory.\n");
+        return -1;
+    }
+
+    do{
+        status = statuses->data;
+        twitter_image_name(status, name);
+        url = status->user->profile_image_url;
+        snprintf(path, PATH_MAX, "%s/%s", twitter->images_dir, name);
+        ret = stat(path, &st);
+        if(ret){
+            if(twitter->debug)
+                printf("fetch_image: %s\n", url);
+            twitter_fetch_image(twitter, url, path);
+        }
+    }while((statuses = g_list_previous(statuses)));
+    return 0;
+}
+
+static size_t twitter_curl_file_cb(void *ptr, size_t size, size_t nmemb,
+                                   void *data)
+{
+    size_t realsize = size * nmemb;
+    fwrite(ptr, size, nmemb, (FILE*)data);
+    return realsize;
+}
+
+int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
+    CURL *curl;
+    CURLcode code;
+    long res;
+    FILE *fp;
+
+    fp = fopen(path, "w");
+    if(!fp){
+        fprintf(stderr, "error: can't openfile %s\n", path);
+        return -1;
+    }
+
+    curl = curl_easy_init();
+    if(!curl){
+        fprintf(stderr, "error: curl_easy_init()\n");
+        return -1;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_file_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)fp);
+
+    code = curl_easy_perform(curl);
+    if(code){
+        fprintf(stderr, "error: %s\n", curl_easy_strerror(code));
+        return -1;
+    }
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
+    if(res != 200){
+        fprintf(stderr, "error respose code: %ld\n", res);
+        return res;
+    }
+    fclose(fp);
+    return 0;
 }

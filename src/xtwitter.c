@@ -145,14 +145,17 @@ void xtwitter_loop()
     twitter = twitter_new();
     twitter_config(twitter);
 
-    timeline = twitter_friends_timeline(twitter);
-    twitter_statuses_free(timeline);
+    if(twitter->debug){
+        timeline = twitter_friends_timeline(twitter);
+        twitter_statuses_free(timeline);
+    }
 
     while(1){
         timeline = twitter_friends_timeline(twitter);
         if(twitter->debug)
             printf("timeline num: %d\n", g_list_length(timeline));
 
+        twitter_fetch_images(twitter, timeline);
         xtwitter_show_timeline(twitter, timeline);
         twitter_statuses_free(timeline);
         timeline = NULL;
