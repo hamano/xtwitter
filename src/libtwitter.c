@@ -47,6 +47,7 @@ twitter_t* twitter_new()
     twitter->last_friends_timeline = 1;
     twitter->fetch_interval = 60;
     twitter->show_interval = 5;
+    twitter->alignment = 2;
     twitter->debug = 0;
     snprintf(twitter->res_dir, PATH_MAX, "%s/.xtwitter", home);
     snprintf(twitter->images_dir, PATH_MAX, "%s/.xtwitter/images", home);
@@ -125,6 +126,19 @@ int twitter_config(twitter_t *twitter)
             twitter->show_interval = atoi(value);
             if(twitter->show_interval < 0){
                 fprintf(stderr, "config read error:\n");
+            }
+        }
+        if(!strcmp(key, "alignment")){
+            if(!strcmp(value, "top_left")){
+                twitter->alignment = 0;
+            }else if(!strcmp(value, "top_right")){
+                twitter->alignment = 1;
+            }else if(!strcmp(value, "bottom_left")){
+                twitter->alignment = 2;
+            }else if(!strcmp(value, "bottom_right")){
+                twitter->alignment = 3;
+            }else{
+                twitter->alignment = 3;
             }
         }
     }

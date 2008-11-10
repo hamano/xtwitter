@@ -25,11 +25,12 @@
 #include <libxml/xmlreader.h>
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
+#include <Imlib.h>
 
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH 500
-#define XTWITTER_WINDOW_HEIGHT 50
+#define XTWITTER_WINDOW_HEIGHT 64
 
 Display *display;
 Window window;
@@ -38,6 +39,9 @@ XFontSet text_fonts;
 XFontSet user_fonts;
 unsigned long color_black, color_white;
 int window_x, window_y;
+
+static ImlibData* imlib_data;
+static ImlibImage* imlib_image;
 
 int xtwitter_xinit()
 {
@@ -93,12 +97,20 @@ int xtwitter_xinit()
     
     window_x = root_width - XTWITTER_WINDOW_WIDTH - 10;
     window_y = root_height - XTWITTER_WINDOW_HEIGHT - 10;
+
+    imlib_data = Imlib_init(display);
     return 0;
 }
 
 int xtwitter_show_status(twitter_t *twitter, twitter_status_t *status)
 {
     XSetWindowAttributes attr;
+    char image_name[PATH_MAX];
+    char image_path[PATH_MAX];
+    Pixmap pixmap;
+
+    twitter_image_name(status, image_name);
+    snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
     
     window = XCreateSimpleWindow(display, RootWindow(display, 0),
                                  window_x, window_y,
@@ -112,13 +124,23 @@ int xtwitter_show_status(twitter_t *twitter, twitter_status_t *status)
     XChangeWindowAttributes(display, window, CWOverrideRedirect, &attr);
     XMapWindow(display, window);
 
-    XmbDrawString(display, window, text_fonts, gc, 50, 30,
+    XmbDrawString(display, window, text_fonts, gc, 55, 35,
                   status->text, strlen(status->text));
-    XmbDrawString(display, window, user_fonts, gc, 5, 45,
+    XmbDrawString(display, window, user_fonts, gc, 5, 60,
                   status->user->screen_name,
                   strlen(status->user->screen_name));
+
+    imlib_image = Imlib_load_image(imlib_data, image_path);
+    Imlib_render(imlib_data, imlib_image, imlib_image->rgb_width, imlib_image->rgb_height);
+    pixmap = Imlib_move_image(imlib_data, imlib_image);
+    XCopyArea(display, pixmap, window, gc, 0, 0,
+              imlib_image->rgb_width, imlib_image->rgb_height,
+              5, 5); 
+
     XFlush(display);
     sleep(twitter->show_interval);
+    Imlib_free_pixmap(imlib_data, pixmap);
+    Imlib_kill_image(imlib_data, imlib_image);
     XDestroyWindow(display, window);
     XFlush(display);
     return 0;
@@ -145,7 +167,7 @@ void xtwitter_loop()
     twitter = twitter_new();
     twitter_config(twitter);
 
-    if(twitter->debug){
+    if(!twitter->debug){
         timeline = twitter_friends_timeline(twitter);
         twitter_statuses_free(timeline);
     }

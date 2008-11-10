@@ -33,6 +33,7 @@ typedef struct{
     unsigned long last_friends_timeline;
     int fetch_interval;
     int show_interval;
+    int alignment;
     int debug;
     int error;
 }twitter_t;

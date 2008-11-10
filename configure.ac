@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT
-AM_INIT_AUTOMAKE(xtwitter, 0.1)
+AM_INIT_AUTOMAKE(xtwitter, 0.2)
 AC_CONFIG_SRCDIR([src/xtwitter.c])
 AM_CONFIG_HEADER(config.h)
 
@@ -11,6 +11,7 @@ AC_PROG_LIBTOOL
 
 # Checks for packages.
 PKG_CHECK_MODULES(X11, x11)
+PKG_CHECK_MODULES(IMLIB, imlib)
 PKG_CHECK_MODULES(GLIB, glib-2.0)
 PKG_CHECK_MODULES(CURL, libcurl)
 PKG_CHECK_MODULES(XML, libxml-2.0)
@@ -22,6 +23,10 @@ AC_CHECK_LIB([X11], [main])
 AC_PATH_X
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdio.h stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS(X11/Xlib.h,,
+    AC_MSG_ERROR([Please install libx11 development package]))
+AC_CHECK_HEADERS(Imlib.h,,
+    AC_MSG_ERROR([Please install libim development package]))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
