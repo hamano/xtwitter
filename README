@@ -1,0 +1,26 @@
+		   Xtwitter - twitter client for X
+
+Xtwitter is very tiny twitter client for X Window System.
+It'll works on Linux, and other UNIX-like operating systems.
+
+* Requirements
+
+  X.org
+  Imlib
+  libcurl
+  libxml 2.0
+  glib 2.0
+
+* Build
+
+  % ./configure && make
+
+* Configration
+
+  % mkdir ~/.xtwitter
+  % cat > ~/.xtwitter/config
+  user=test
+  pass=xxxxxxxx
+  ^D
+
+Copyright (C) 2008 Tsukasa Hamano <code@cuspy.org>

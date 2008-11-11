@@ -1,0 +1,9 @@
+2008-11-11  Tsukasa Hamano  <code@cuspy.org>
+
+	* added curl option CURLOPT_SSL_VERIFYPEER and CURLOPT_SSL_VERIFYHOST
+	* added function to fetch and display twitter icons.
+	* release 0.2
+
+2008-11-09  Tsukasa Hamano  <code@cuspy.org>
+
+	* release 0.1.
