@@ -1,3 +1,9 @@
+2008-11-12  Tsukasa Hamano  <code@cuspy.org>
+
+	* added function to draw alignment text.
+	* fiexed bug segmentation fault when loading wrong image file.
+	* release 0.3
+
 2008-11-11  Tsukasa Hamano  <code@cuspy.org>
 
 	* added curl option CURLOPT_SSL_VERIFYPEER and CURLOPT_SSL_VERIFYHOST
