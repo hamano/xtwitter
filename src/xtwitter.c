@@ -124,7 +124,7 @@ int xtwitter_show_status(twitter_t *twitter, twitter_status_t *status)
     XChangeWindowAttributes(display, window, CWOverrideRedirect, &attr);
     XMapWindow(display, window);
 
-    XmbDrawString(display, window, text_fonts, gc, 55, 35,
+    XmbDrawString(display, window, text_fonts, gc, 55, 38,
                   status->text, strlen(status->text));
     XmbDrawString(display, window, user_fonts, gc, 5, 60,
                   status->user->screen_name,
