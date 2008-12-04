@@ -27,6 +27,7 @@
 #include <X11/Xlocale.h>
 #include <Imlib.h>
 
+#include "config.h"
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH 480
@@ -40,8 +41,8 @@ XFontSet user_fonts;
 unsigned long color_black, color_white;
 int window_x, window_y;
 
-static ImlibData* imlib_data;
-static ImlibImage* imlib_image;
+ImlibData* imlib_data;
+ImlibImage* imlib_image;
 
 int xtwitter_xinit()
 {
@@ -251,7 +252,7 @@ int main(int argc, char *argv[]){
     int ret;
     int opt;
 
-    while((opt = getopt(argc, argv, "du:")) != -1){
+    while((opt = getopt(argc, argv, "du:v")) != -1){
         switch(opt){
         case 'd':
             printf("option d\n");
@@ -262,8 +263,14 @@ int main(int argc, char *argv[]){
             xtwitter_update(optarg);
             fprintf(stdout, "done\n");
             return EXIT_SUCCESS;
+        case 'v':
+            printf("%s %s\n", PACKAGE, VERSION);
+            return EXIT_SUCCESS;
         default:
-            fprintf(stderr, "usage: \n");
+            fprintf(stderr, "usage:\n");
+            fprintf(stderr, "  %s\n", PACKAGE);
+            fprintf(stderr, "  or\n", PACKAGE);
+            fprintf(stderr, "  %s -u \"update status\"\n", PACKAGE);
             return EXIT_FAILURE;
         }
     }
