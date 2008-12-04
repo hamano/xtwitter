@@ -3,6 +3,9 @@
 Xtwitter is very tiny twitter client for X Window System.
 It'll works on Linux, and other UNIX-like operating systems.
 
+* Project URL
+  http://www.cuspy.org/xtwitter/
+
 * Requirements
 
   X.org
