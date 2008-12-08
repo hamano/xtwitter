@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT
-AM_INIT_AUTOMAKE(xtwitter, 0.4)
+AM_INIT_AUTOMAKE(xtwitter, 0.5)
 AC_CONFIG_SRCDIR([src/xtwitter.c])
 AM_CONFIG_HEADER(config.h)
 
@@ -18,21 +18,13 @@ PKG_CHECK_MODULES(XML, libxml-2.0)
 
 AC_ARG_ENABLE(libnotify,
 [AC_HELP_STRING([--enable-libnotify], [use the libnotify [default=no]])])
-echo hoge1
 if test "$enable_libnotify" = "yes"; then
-echo hoge2
    PKG_CHECK_MODULES(LIBNOTIFY, libnotify)
-#   CFLAGS="-DLIBNOTIFY $CFLAGS"
    AC_DEFINE([ENABLE_LIBNOTIFY], [], [Description])
-echo hoge
-echo $NOTIFY_CFLAGS
 fi
 
 #AC_ARG_WITH(libnotify,
 #[AC_HELP_STRING([--with-libnotify], [use the libnotify])])
-#if test "$enable_notify" = "yes"; then
-#   CFLAGS="-DLIBNOTIFY $CFLAGS"
-#fi
 
 # Checks for libraries.
 AC_CHECK_LIB([X11], [main])

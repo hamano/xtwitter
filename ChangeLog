@@ -1,3 +1,8 @@
+2008-12-09  Tsukasa Hamano  <code@cuspy.org>
+
+	* added new popup method that use libnotify.
+	* release 0.5
+
 2008-12-05  Tsukasa Hamano  <code@cuspy.org>
 
 	* added -v option print version.
