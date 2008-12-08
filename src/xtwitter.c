@@ -17,6 +17,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +28,9 @@
 #include <X11/Xlocale.h>
 #include <Imlib.h>
 
-#include "config.h"
+#ifdef ENABLE_LIBNOTIFY
+#include <libnotify/notify.h>
+#endif
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH 480
@@ -44,7 +47,7 @@ int window_x, window_y;
 ImlibData* imlib_data;
 ImlibImage* imlib_image;
 
-int xtwitter_xinit()
+int xtwitter_x_init()
 {
     Window root;
     int screen;
@@ -103,6 +106,31 @@ int xtwitter_xinit()
     return 0;
 }
 
+#ifdef ENABLE_LIBNOTIFY
+int xtwitter_libnotify_init()
+{
+    if(!notify_init(PACKAGE)){
+        return -1;
+    }
+    return 0;
+}
+
+int xtwitter_libnotify_popup(twitter_t *twitter, twitter_status_t *status)
+{
+    NotifyNotification *notify;
+    char image_name[PATH_MAX];
+    char image_path[PATH_MAX];
+
+    twitter_image_name(status, image_name);
+    snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
+    notify = notify_notification_new(status->user->screen_name,
+                                     status->text, image_path, NULL);
+    notify_notification_show(notify, NULL);
+    sleep(twitter->show_interval);
+    return 0;
+}
+#endif
+
 int utf8pos(const char *str, int width){
     int i=0;
     unsigned char c;
@@ -122,7 +150,7 @@ int utf8pos(const char *str, int width){
     return i;
 }
 
-int xtwitter_show_status(twitter_t *twitter, twitter_status_t *status)
+int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 {
     XSetWindowAttributes attr;
     char image_name[PATH_MAX];
@@ -209,7 +237,13 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
         status = statuses->data;
         if(twitter->debug)
             twitter_status_print(status);
-        xtwitter_show_status(twitter, status);
+
+#ifdef ENABLE_LIBNOTIFY
+        xtwitter_libnotify_popup(twitter, status);
+#else
+        xtwitter_x_popup(twitter, status);
+#endif
+
     }while((statuses = g_list_previous(statuses)));
 }
 
@@ -249,7 +283,7 @@ void xtwitter_update(const char *text)
 }
 
 int main(int argc, char *argv[]){
-    int ret;
+    int ret = -1;
     int opt;
 
     while((opt = getopt(argc, argv, "du:v")) != -1){
@@ -275,10 +309,19 @@ int main(int argc, char *argv[]){
         }
     }
 
-    ret = xtwitter_xinit();
+#ifdef ENABLE_LIBNOTIFY
+    ret = xtwitter_libnotify_init();
     if(ret){
+        fprintf(stderr, "xtwitter: error at xtwitter_init_libnotify()\n");
         return EXIT_FAILURE;
     }
+#else
+    ret = xtwitter_x_init();
+    if(ret){
+        fprintf(stderr, "xtwitter: error at xtwitter_init_x()\n");
+        return EXIT_FAILURE;
+    }
+#endif
     xtwitter_loop();
     return EXIT_SUCCESS;
 }

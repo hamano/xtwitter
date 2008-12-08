@@ -16,6 +16,24 @@ PKG_CHECK_MODULES(GLIB, glib-2.0)
 PKG_CHECK_MODULES(CURL, libcurl)
 PKG_CHECK_MODULES(XML, libxml-2.0)
 
+AC_ARG_ENABLE(libnotify,
+[AC_HELP_STRING([--enable-libnotify], [use the libnotify [default=no]])])
+echo hoge1
+if test "$enable_libnotify" = "yes"; then
+echo hoge2
+   PKG_CHECK_MODULES(LIBNOTIFY, libnotify)
+#   CFLAGS="-DLIBNOTIFY $CFLAGS"
+   AC_DEFINE([ENABLE_LIBNOTIFY], [], [Description])
+echo hoge
+echo $NOTIFY_CFLAGS
+fi
+
+#AC_ARG_WITH(libnotify,
+#[AC_HELP_STRING([--with-libnotify], [use the libnotify])])
+#if test "$enable_notify" = "yes"; then
+#   CFLAGS="-DLIBNOTIFY $CFLAGS"
+#fi
+
 # Checks for libraries.
 AC_CHECK_LIB([X11], [main])
 

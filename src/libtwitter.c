@@ -505,8 +505,6 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
     esc = curl_easy_escape(curl, url + i + 1, 0);
     strncpy(escaped_url, url, PATH_MAX - 1);
     strncpy(escaped_url + i + 1, esc, PATH_MAX - i);
-    printf("url: %s\n", url);
-    printf("escaped_url: %s\n", escaped_url);
     curl_free(esc);
 
     curl_easy_setopt(curl, CURLOPT_URL, escaped_url);
