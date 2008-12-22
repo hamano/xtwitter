@@ -210,7 +210,7 @@ int twitter_update(twitter_t *twitter, const char *status)
     }
     snprintf(api_uri, PATH_MAX, "%s%s",
              twitter->base_uri, TWITTER_API_PATH_UPDATE);
-    if(twitter->debug)
+    if(twitter->debug >= 2)
         printf("api_uri: %s\n", api_uri);
 
     curl_formadd(&formpost, &lastptr,
@@ -263,7 +263,7 @@ GList* twitter_friends_timeline(twitter_t *twitter)
     snprintf(api_uri, PATH_MAX, "%s%s?since_id=%ld",
              twitter->base_uri, TWITTER_API_PATH_FRIENDS_TIMELINE,
              twitter->last_friends_timeline);
-    if(twitter->debug)
+    if(twitter->debug > 1)
         printf("api_uri: %s\n", api_uri);
 
     buf = g_byte_array_new();
@@ -288,7 +288,8 @@ GList* twitter_friends_timeline(twitter_t *twitter)
     return timeline;
 }
 
-GList* twitter_parse_statuses_node(xmlTextReaderPtr reader){
+GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
+{
     int ret;
     xmlElementType type;
     xmlChar *name;

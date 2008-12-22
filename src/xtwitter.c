@@ -33,8 +33,8 @@
 #endif
 #include "libtwitter.h"
 
-#define XTWITTER_WINDOW_WIDTH 480
-#define XTWITTER_WINDOW_HEIGHT 64
+#define XTWITTER_WINDOW_WIDTH  400
+#define XTWITTER_WINDOW_HEIGHT 100
 
 Display *display;
 Window window;
@@ -82,6 +82,7 @@ int xtwitter_x_init()
 
     text_fonts = XCreateFontSet(display, "-*-*-medium-r-normal--14-*-*-*", 
                                 &missing_list, &missing_count, &def_string);
+
     if(!text_fonts){
         printf( "error: XCreateFontSet\n" );
         return 1;
@@ -89,7 +90,8 @@ int xtwitter_x_init()
     if(!missing_list){
         XFreeStringList(missing_list);
     }
-    user_fonts = XCreateFontSet(display, "-*-*-medium-r-normal--9-*-*-*", 
+
+    user_fonts = XCreateFontSet(display, "-*-*-medium-r-normal--12-*-*-*", 
                                 &missing_list, &missing_count, &def_string);
     if(!user_fonts){
         printf( "error: XCreateFontSet\n" );
@@ -115,16 +117,74 @@ int xtwitter_libnotify_init()
     return 0;
 }
 
+/*
+  XML unescape only &lt; and &gt;
+  notice: destructive conversion.
+ */
+static void xmlunescape(char *str)
+{
+    char *p;
+    while(p = strstr(str, "&lt;")){
+        *p++ = '<';
+        while(*p = *(p + 3)) p++;
+        *p = '\0';
+    }
+    while(p = strstr(str, "&gt;")){
+        *p++ = '>';
+        while(*p = *(p + 3)) p++;
+        *p = '\0';
+    }
+}
+
+/*
+  XML escape only &, > and <;
+ */
+static void xmlescape(char *dest, const char *src, size_t n)
+{
+    int i = 0;
+    int j = 0;
+    size_t len = strlen(src);
+    do{
+        if(j + 6 > n){
+            dest[j] = '\0';
+            break;
+        }else if(src[i] == '&'){
+            dest[j++] = '&';
+            dest[j++] = 'a';
+            dest[j++] = 'm';
+            dest[j++] = 'p';
+            dest[j++] = ';';
+        }else if(src[i] == '>'){
+            dest[j++] = '&';
+            dest[j++] = 'g';
+            dest[j++] = 't';
+            dest[j++] = ';';
+        }else if(src[i] == '<'){
+            dest[j++] = '&';
+            dest[j++] = 'l';
+            dest[j++] = 't';
+            dest[j++] = ';';
+        }else{
+            dest[j] = src[i];
+            j++;
+        }
+    }while(src[i++]);
+}
+
 int xtwitter_libnotify_popup(twitter_t *twitter, twitter_status_t *status)
 {
     NotifyNotification *notify;
     char image_name[PATH_MAX];
     char image_path[PATH_MAX];
+    char text[2048];
 
+    /* notice: destructive conversion  */
+    xmlunescape((char*)status->text);
+    xmlescape(text, status->text, 2048);
     twitter_image_name(status, image_name);
     snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
     notify = notify_notification_new(status->user->screen_name,
-                                     status->text, image_path, NULL);
+                                     text, image_path, NULL);
     notify_notification_show(notify, NULL);
     sleep(twitter->show_interval);
     return 0;
@@ -162,8 +222,12 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     const char *text = status->text;
     unsigned char c;
     int i;
+
+    /* notice: destructive conversion  */
+    xmlunescape((char*)status->text);
+
     while(*text){
-        pos=utf8pos(text, 60);
+        pos=utf8pos(text, 48);
         text+=pos;
         text_line++;
     }
@@ -185,13 +249,19 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 
     switch(text_line){
     case 1:
-        pad_y = 37;
+        pad_y = 54;
         break;
     case 2:
-        pad_y = 26;
+        pad_y = 46;
         break;
     case 3:
-        pad_y = 17;
+        pad_y = 38;
+        break;
+    case 4:
+        pad_y = 30;
+        break;
+    case 5:
+        pad_y = 24;
         break;
     default:
         pad_y = 15;
@@ -199,12 +269,12 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     text = status->text;
     i=0;
     while(*text){
-        pos=utf8pos(text, 60);
+        pos=utf8pos(text, 48);
         XmbDrawString(display, window, text_fonts, gc,
-                      55, pad_y + 16 * i++, text, pos);
+                      56, pad_y + 16 * i++, text, pos);
         text+=pos;
     }
-    XmbDrawString(display, window, user_fonts, gc, 5, 60,
+    XmbDrawString(display, window, user_fonts, gc, 5, 20,
                   status->user->screen_name,
                   strlen(status->user->screen_name));
 
@@ -215,7 +285,7 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
         pixmap = Imlib_move_image(imlib_data, imlib_image);
         XCopyArea(display, pixmap, window, gc, 0, 0,
                   imlib_image->rgb_width, imlib_image->rgb_height,
-                  5, 5); 
+                  5, 25); 
     }
 
     XFlush(display);
@@ -235,6 +305,7 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     }
     do{
         status = statuses->data;
+
         if(twitter->debug)
             twitter_status_print(status);
 
@@ -261,7 +332,7 @@ void xtwitter_loop()
 
     while(1){
         timeline = twitter_friends_timeline(twitter);
-        if(twitter->debug)
+        if(twitter->debug >= 2)
             printf("timeline num: %d\n", g_list_length(timeline));
 
         twitter_fetch_images(twitter, timeline);
