@@ -108,15 +108,6 @@ int xtwitter_x_init()
     return 0;
 }
 
-#ifdef ENABLE_LIBNOTIFY
-int xtwitter_libnotify_init()
-{
-    if(!notify_init(PACKAGE)){
-        return -1;
-    }
-    return 0;
-}
-
 /*
   XML unescape only &lt; and &gt;
   notice: destructive conversion.
@@ -169,6 +160,15 @@ static void xmlescape(char *dest, const char *src, size_t n)
             j++;
         }
     }while(src[i++]);
+}
+
+#ifdef ENABLE_LIBNOTIFY
+int xtwitter_libnotify_init()
+{
+    if(!notify_init(PACKAGE)){
+        return -1;
+    }
+    return 0;
 }
 
 int xtwitter_libnotify_popup(twitter_t *twitter, twitter_status_t *status)
