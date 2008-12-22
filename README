@@ -13,10 +13,16 @@ It'll works on Linux, and other UNIX-like operating systems.
   libcurl
   libxml 2.0
   glib 2.0
+  libnotify(optional)
 
 * Build
 
-  % ./configure && make
+  % ./configure
+
+  # If you want to use libnotify.
+  % ./configure --enable-libnotify
+
+  % make
 
 * Configration
 

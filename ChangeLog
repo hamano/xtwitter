@@ -1,3 +1,10 @@
+2008-12-15  Tsukasa Hamano  <code@cuspy.org>
+
+	* modified text alignment(for X).
+	* xml unescape and escape.
+	* created debian package.
+	* release 0.6
+
 2008-12-09  Tsukasa Hamano  <code@cuspy.org>
 
 	* added new popup method that use libnotify.
