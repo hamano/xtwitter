@@ -223,6 +223,7 @@ int twitter_update(twitter_t *twitter, const char *status)
                  CURLFORM_COPYCONTENTS, twitter->source,
                  CURLFORM_END);
 
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
     curl_easy_setopt(curl, CURLOPT_URL, api_uri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
@@ -238,13 +239,14 @@ int twitter_update(twitter_t *twitter, const char *status)
         return -1;
     }
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
+
+    if(twitter->debug >= 3){
+        fwrite(buf->data, 1, buf->len, stderr);
+        fprintf(stderr, "\n");
+    }
     if(res != 200){
         printf("error respose code: %ld\n", res);
         return res;
-    }
-    if(twitter->debug > 2){
-        fwrite(buf->data, 1, buf->len, stderr);
-        fprintf(stderr, "\n");
     }
     curl_easy_cleanup(curl);
     curl_formfree(formpost);
