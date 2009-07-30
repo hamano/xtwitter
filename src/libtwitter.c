@@ -260,7 +260,7 @@ GList* twitter_friends_timeline(twitter_t *twitter)
     char api_uri[PATH_MAX];
     twitter_status_t *status;
 
-    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%ld",
+    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%lu",
              twitter->base_uri, TWITTER_API_PATH_FRIENDS_TIMELINE,
              twitter->last_friends_timeline);
     if(twitter->debug > 1)
@@ -282,7 +282,7 @@ GList* twitter_friends_timeline(twitter_t *twitter)
 
     if(timeline){
         status = timeline->data;
-        twitter->last_friends_timeline = atol(status->id);
+        twitter->last_friends_timeline = atoll(status->id);
     }
 
     return timeline;
