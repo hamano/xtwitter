@@ -198,6 +198,7 @@ int twitter_update(twitter_t *twitter, const char *status)
     char api_uri[PATH_MAX];
     struct curl_httppost *formpost=NULL;
     struct curl_httppost *lastptr=NULL;
+    struct curl_slist *headers=NULL;
     GByteArray *buf;
     char userpass[256];
 
@@ -212,6 +213,8 @@ int twitter_update(twitter_t *twitter, const char *status)
              twitter->base_uri, TWITTER_API_PATH_UPDATE);
     if(twitter->debug >= 2)
         printf("api_uri: %s\n", api_uri);
+
+    headers = curl_slist_append(headers, "Expect:");
 
     curl_formadd(&formpost, &lastptr,
                  CURLFORM_COPYNAME, "status",
@@ -231,6 +234,7 @@ int twitter_update(twitter_t *twitter, const char *status)
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)buf);
     curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     code = curl_easy_perform(curl);
     if(code){
@@ -240,14 +244,15 @@ int twitter_update(twitter_t *twitter, const char *status)
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
     if(res != 200){
         printf("error respose code: %ld\n", res);
+        if(twitter->debug > 2){
+            fwrite(buf->data, 1, buf->len, stderr);
+            fprintf(stderr, "\n");
+        }
         return res;
-    }
-    if(twitter->debug > 2){
-        fwrite(buf->data, 1, buf->len, stderr);
-        fprintf(stderr, "\n");
     }
     curl_easy_cleanup(curl);
     curl_formfree(formpost);
+    curl_slist_free_all(headers);
     return 0;
 }
 
