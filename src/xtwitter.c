@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <glib.h>
 #include <libxml/xmlreader.h>
 #include <X11/Xlib.h>
@@ -100,7 +102,7 @@ int xtwitter_x_init()
     if(!missing_list){
         XFreeStringList(missing_list);
     }
-    
+
     window_x = root_width - XTWITTER_WINDOW_WIDTH - 10;
     window_y = root_height - XTWITTER_WINDOW_HEIGHT - 10;
 
@@ -112,15 +114,15 @@ int xtwitter_x_init()
   XML unescape only &lt; and &gt;
   notice: destructive conversion.
  */
-static void xmlunescape(char *str)
+static void xmlunescape(const char *str)
 {
     char *p;
-    while(p = strstr(str, "&lt;")){
+    while((p = strstr(str, "&lt;")) != NULL){
         *p++ = '<';
         while(*p = *(p + 3)) p++;
         *p = '\0';
     }
-    while(p = strstr(str, "&gt;")){
+    while((p = strstr(str, "&gt;")) != NULL){
         *p++ = '>';
         while(*p = *(p + 3)) p++;
         *p = '\0';
@@ -234,7 +236,7 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 
     twitter_image_name(status, image_name);
     snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
-    
+
     window = XCreateSimpleWindow(display, RootWindow(display, 0),
                                  window_x, window_y,
                                  XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT,
@@ -325,10 +327,12 @@ void xtwitter_loop()
     twitter = twitter_new();
     twitter_config(twitter);
 
+/*
     if(!twitter->debug){
         timeline = twitter_friends_timeline(twitter);
         twitter_statuses_free(timeline);
     }
+*/
 
     while(1){
         timeline = twitter_friends_timeline(twitter);
@@ -347,30 +351,80 @@ void xtwitter_loop()
 void xtwitter_update(const char *text)
 {
     twitter_t *twitter = NULL;
+
+    fprintf(stdout, "updating...");
+    fflush(stdout);
+
     twitter = twitter_new();
     twitter_config(twitter);
     twitter_update(twitter, text);
     twitter_free(twitter);
+
+    fprintf(stdout, "done\n");
+}
+
+void xtwitter_update_stdin()
+{
+    twitter_t *twitter = NULL;
+    int i;
+    char text[1024];
+    fgets(text, 1024, stdin);
+    xtwitter_update(text);
+}
+
+static void daemonize(void)
+{
+    pid_t pid, sid;
+
+    if(getppid() == 1)
+        return;
+
+    pid = fork();
+    if (pid < 0) {
+        exit(EXIT_FAILURE);
+    }else if (pid > 0) {
+        exit(EXIT_SUCCESS);
+    }
+
+    umask(0);
+
+    sid = setsid();
+    if (sid < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    if ((chdir("/")) < 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    freopen( "/dev/null", "r", stdin);
+    freopen( "/dev/null", "w", stdout);
+    freopen( "/dev/null", "w", stderr);
 }
 
 int main(int argc, char *argv[]){
     int ret = -1;
     int opt;
+    int opt_daemonize = 0;
 
-    while((opt = getopt(argc, argv, "du:v")) != -1){
+    while((opt = getopt(argc, argv, "du:vD")) != -1){
         switch(opt){
         case 'd':
             printf("option d\n");
             break;
         case 'u':
-            fprintf(stdout, "updating...");
-            fflush(stdout);
-            xtwitter_update(optarg);
-            fprintf(stdout, "done\n");
+            if(!strcmp(optarg, "-")){
+                xtwitter_update_stdin();
+            }else{
+                xtwitter_update(optarg);
+            }
             return EXIT_SUCCESS;
         case 'v':
             printf("%s %s\n", PACKAGE, VERSION);
             return EXIT_SUCCESS;
+        case 'D':
+            opt_daemonize = 1;
+            break;
         default:
             fprintf(stderr, "usage:\n");
             fprintf(stderr, "  %s\n", PACKAGE);
@@ -393,6 +447,11 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
     }
 #endif
+
+    if(opt_daemonize){
+        daemonize();
+    }
+
     xtwitter_loop();
     return EXIT_SUCCESS;
 }
