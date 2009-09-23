@@ -30,7 +30,7 @@ typedef struct{
     const char *source;
     char res_dir[PATH_MAX];
     char images_dir[PATH_MAX];
-    unsigned long last_friends_timeline;
+    unsigned long long last_friends_timeline;
     int fetch_interval;
     int show_interval;
     int alignment;

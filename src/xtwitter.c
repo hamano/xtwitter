@@ -136,7 +136,6 @@ static void xmlescape(char *dest, const char *src, size_t n)
 {
     int i = 0;
     int j = 0;
-    size_t len = strlen(src);
     do{
         if(j + 6 > n){
             dest[j] = '\0';
@@ -366,7 +365,6 @@ void xtwitter_update(const char *text)
 void xtwitter_update_stdin()
 {
     twitter_t *twitter = NULL;
-    int i;
     char text[1024];
     fgets(text, 1024, stdin);
     xtwitter_update(text);
