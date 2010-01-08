@@ -394,7 +394,11 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader){
 }
 
 void twitter_status_print(twitter_status_t *status){
-    printf("[%s]%s: %s\n", status->id,
+    printf("@%s: %s\n", status->user->screen_name, status->text);
+}
+
+void twitter_status_dump(twitter_status_t *status){
+    printf("[%s] @%s: %s\n", status->id,
            status->user->screen_name, status->text);
 }
 

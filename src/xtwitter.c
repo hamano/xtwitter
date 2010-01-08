@@ -307,8 +307,11 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     do{
         status = statuses->data;
 
-        if(twitter->debug)
+        if(twitter->debug == 1){
             twitter_status_print(status);
+		}else if(twitter->debug > 1){
+            twitter_status_dump(status);
+		}
 
 #ifdef ENABLE_LIBNOTIFY
         xtwitter_libnotify_popup(twitter, status);
