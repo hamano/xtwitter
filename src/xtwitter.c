@@ -28,7 +28,7 @@
 #include <libxml/xmlreader.h>
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
-#include <Imlib.h>
+#include <Imlib2.h>
 
 #ifdef ENABLE_LIBNOTIFY
 #include <libnotify/notify.h>
@@ -46,8 +46,7 @@ XFontSet user_fonts;
 unsigned long color_black, color_white;
 int window_x, window_y;
 
-ImlibData* imlib_data;
-ImlibImage* imlib_image;
+Imlib_Image* image;
 
 int xtwitter_x_init()
 {
@@ -106,7 +105,9 @@ int xtwitter_x_init()
     window_x = root_width - XTWITTER_WINDOW_WIDTH - 10;
     window_y = root_height - XTWITTER_WINDOW_HEIGHT - 10;
 
-    imlib_data = Imlib_init(display);
+	imlib_context_set_display(display);
+	imlib_context_set_visual(DefaultVisual(display, 0));
+	imlib_context_set_colormap(DefaultColormap(display, 0));
     return 0;
 }
 
@@ -119,12 +120,12 @@ static void xmlunescape(const char *str)
     char *p;
     while((p = strstr(str, "&lt;")) != NULL){
         *p++ = '<';
-        while(*p = *(p + 3)) p++;
+        while((*p = *(p + 3))) p++;
         *p = '\0';
     }
     while((p = strstr(str, "&gt;")) != NULL){
         *p++ = '>';
-        while(*p = *(p + 3)) p++;
+        while((*p = *(p + 3))) p++;
         *p = '\0';
     }
 }
@@ -216,12 +217,10 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     XSetWindowAttributes attr;
     char image_name[PATH_MAX];
     char image_path[PATH_MAX];
-    Pixmap pixmap;
     int pad_y;
     int text_line=0;
     int pos;
     const char *text = status->text;
-    unsigned char c;
     int i;
 
     /* notice: destructive conversion  */
@@ -279,20 +278,15 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
                   status->user->screen_name,
                   strlen(status->user->screen_name));
 
-    imlib_image = Imlib_load_image(imlib_data, image_path);
-    if(imlib_image){
-        Imlib_render(imlib_data, imlib_image,
-                     imlib_image->rgb_width, imlib_image->rgb_height);
-        pixmap = Imlib_move_image(imlib_data, imlib_image);
-        XCopyArea(display, pixmap, window, gc, 0, 0,
-                  imlib_image->rgb_width, imlib_image->rgb_height,
-                  5, 25); 
+    image = imlib_load_image(image_path);
+    if(image){
+		imlib_context_set_image(image);
+		imlib_context_set_drawable(window);
+		imlib_render_image_on_drawable(5, 25);
     }
 
     XFlush(display);
     sleep(twitter->show_interval);
-    Imlib_free_pixmap(imlib_data, pixmap);
-    Imlib_kill_image(imlib_data, imlib_image);
     XDestroyWindow(display, window);
     XFlush(display);
     return 0;
@@ -367,7 +361,6 @@ void xtwitter_update(const char *text)
 
 void xtwitter_update_stdin()
 {
-    twitter_t *twitter = NULL;
     char text[1024];
     fgets(text, 1024, stdin);
     xtwitter_update(text);
