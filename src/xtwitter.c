@@ -212,6 +212,25 @@ int utf8pos(const char *str, int width){
     return i;
 }
 
+int xtwitter_count(const char *str){
+    int i=0;
+    unsigned char c;
+    int count=0;
+    while(str[i]){
+        count++;
+        c = (unsigned char)str[i];
+        if(c < 0x80){
+            i++;
+            continue;
+        }
+        while(c & 0x80){
+            c<<=1;
+            i++;
+        }
+    }
+    return count;
+}
+
 int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 {
     XSetWindowAttributes attr;
@@ -346,10 +365,15 @@ void xtwitter_loop()
 
 void xtwitter_update(const char *text)
 {
+    int count;
     twitter_t *twitter = NULL;
+
+    count = xtwitter_count(text);
+    printf("count: %d\n", count);
 
     fprintf(stdout, "updating...");
     fflush(stdout);
+	return;
 
     twitter = twitter_new();
     twitter_config(twitter);
