@@ -27,7 +27,7 @@
 #include <glib.h>
 #include <curl/curl.h>
 #include <libxml/xmlreader.h>
-
+#include <Imlib2.h>
 #include "libtwitter.h"
 
 twitter_t* twitter_new()
@@ -138,7 +138,7 @@ int twitter_config(twitter_t *twitter)
             }else if(!strcmp(value, "bottom_right")){
                 twitter->alignment = 3;
             }else{
-                twitter->alignment = 3;
+                twitter->alignment = 2;
             }
         }
     }
@@ -471,8 +471,6 @@ int twitter_fetch_images(twitter_t *twitter, GList *statuses){
         snprintf(path, PATH_MAX, "%s/%s", twitter->images_dir, name);
         ret = stat(path, &st);
         if(ret){
-            if(twitter->debug)
-                printf("fetch_image: %s\n", url);
             twitter_fetch_image(twitter, url, path);
         }
     }while((statuses = g_list_previous(statuses)));
@@ -495,8 +493,11 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
     int i;
     char *esc;
     char escaped_url[PATH_MAX];
+	int ret;
 
-    printf("twitter_fetch_image\n");
+    if(twitter->debug >= 2){
+        printf("fetch image: %s\n", url);
+    }
     fp = fopen(path, "w");
     if(!fp){
         fprintf(stderr, "error: can't openfile %s\n", path);
@@ -532,5 +533,14 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
         return res;
     }
     fclose(fp);
+
+    //ret = twitter_resize_image();
+
     return 0;
+}
+
+int twitter_resize_image(twitter_t *twitter, char* path){
+    if(twitter->debug >= 2){
+        printf("resize image: %s\n", path);
+    }
 }

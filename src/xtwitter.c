@@ -351,8 +351,9 @@ void xtwitter_loop()
 
     while(1){
         timeline = twitter_friends_timeline(twitter);
-        if(twitter->debug >= 2)
+        if(twitter->debug >= 2){
             printf("timeline num: %d\n", g_list_length(timeline));
+		}
 
         twitter_fetch_images(twitter, timeline);
         xtwitter_show_timeline(twitter, timeline);
@@ -368,14 +369,19 @@ void xtwitter_update(const char *text)
     int count;
     twitter_t *twitter = NULL;
 
+    twitter = twitter_new();
     count = xtwitter_count(text);
-    printf("count: %d\n", count);
-
+	if(twitter->debug >= 1){
+		printf("count: %d\n", count);
+	}
+	if(count > 140){
+		fprintf(stdout, "message length is too long.\n");
+		fprintf(stdout, "count: %d\n", count);
+		return;
+	}
     fprintf(stdout, "updating...");
     fflush(stdout);
-	return;
 
-    twitter = twitter_new();
     twitter_config(twitter);
     twitter_update(twitter, text);
     twitter_free(twitter);

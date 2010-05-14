@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT
-AM_INIT_AUTOMAKE(xtwitter, 0.8)
+AM_INIT_AUTOMAKE(xtwitter, 0.9)
 AC_CONFIG_SRCDIR([src/xtwitter.c])
 AM_CONFIG_HEADER(config.h)
 
