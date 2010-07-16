@@ -22,6 +22,8 @@
 #define TWITTER_BASE_URI "https://twitter.com"
 #define TWITTER_API_PATH_FRIENDS_TIMELINE "/statuses/friends_timeline.xml"
 #define TWITTER_API_PATH_UPDATE "/statuses/update.xml"
+#define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
+#define TWITTER_API_SEARCH "/search.atom"
 
 typedef struct{
     const char *base_uri;
@@ -63,8 +65,11 @@ GList* twitter_parse_statuses_node(xmlTextReaderPtr reader);
 twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader);
 twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader);
 
+GList* twitter_search_timeline(twitter_t *twitter, const char *word);
+
 void twitter_statuses_free(GList *statuses);
 void twitter_status_print(twitter_status_t *status);
 
 int twitter_fetch_images(twitter_t *twitter, GList *statuses);
-int twitter_fetch_image(twitter_t *twitter, const char *url, char* path);
+int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path);
+int twitter_resize_image(twitter_t *twitter, const char* path);

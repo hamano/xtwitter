@@ -472,6 +472,7 @@ int twitter_fetch_images(twitter_t *twitter, GList *statuses){
         ret = stat(path, &st);
         if(ret){
             twitter_fetch_image(twitter, url, path);
+            twitter_resize_image(twitter, path);
         }
     }while((statuses = g_list_previous(statuses)));
     return 0;
@@ -485,7 +486,7 @@ static size_t twitter_curl_file_cb(void *ptr, size_t size, size_t nmemb,
     return realsize;
 }
 
-int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
+int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path){
     CURL *curl;
     CURLcode code;
     long res;
@@ -493,7 +494,6 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
     int i;
     char *esc;
     char escaped_url[PATH_MAX];
-	int ret;
 
     if(twitter->debug >= 2){
         printf("fetch image: %s\n", url);
@@ -534,13 +534,90 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, char* path){
     }
     fclose(fp);
 
-    //ret = twitter_resize_image();
-
     return 0;
 }
 
-int twitter_resize_image(twitter_t *twitter, char* path){
-    if(twitter->debug >= 2){
-        printf("resize image: %s\n", path);
+int twitter_resize_image(twitter_t *twitter, const char* path)
+{
+    Imlib_Image *image;
+    Imlib_Image *scaled_image;
+    int width, height;
+
+    image = imlib_load_image(path);
+    if(!image){
+        return -1;
     }
+    imlib_context_set_image(image);
+    width = imlib_image_get_width();
+    height = imlib_image_get_width();
+    if(width > 48 || height > 48){
+        if(twitter->debug >= 1){
+            printf("resizing image due to too large(%d, %d)\n", width, height);
+        }
+        scaled_image = imlib_create_cropped_scaled_image(0, 0,
+                                                         width, height,
+                                                         48, 48);
+        if(!scaled_image){
+            printf("error\n");
+            return -1;
+        }
+        imlib_context_set_image(scaled_image);
+        imlib_save_image(path);
+        imlib_free_image();
+        imlib_context_set_image(image);
+        if(twitter->debug >= 1){
+            printf("resized image %s\n", path);
+        }
+    }
+    imlib_free_image();
+    return 0;
 }
+
+GList* twitter_search_timeline(twitter_t *twitter, const char *word)
+{
+    int ret;
+    //GList *timeline = NULL;
+    GByteArray *buf;
+    xmlTextReaderPtr reader;
+    char api_uri[PATH_MAX];
+    //twitter_status_t *status;
+
+    snprintf(api_uri, PATH_MAX, "%s?q=%s&since_id=%llu",
+             TWITTER_SEARCH_URI,
+			 word,
+             twitter->last_friends_timeline);
+    if(twitter->debug > 1)
+        printf("api_uri: %s\n", api_uri);
+
+    buf = g_byte_array_new();
+
+    ret = twitter_fetch(twitter, api_uri, buf);
+    if(ret){
+        printf("ERROR: twitter_fetch()\n");
+        return NULL;
+    }
+//	printf("%s\n", buf->data);
+    reader = xmlReaderForMemory((const char *)buf->data, buf->len,
+                                NULL, NULL, 0);
+/*
+    timeline = twitter_parse_statuses_node(reader);
+    xmlFreeTextReader(reader);
+    g_byte_array_free (buf, TRUE);
+//    xmlMemoryDump();
+
+    if(timeline){
+        status = timeline->data;
+        twitter->last_friends_timeline = atoll(status->id);
+    }
+
+    return timeline;
+*/
+	return NULL;
+}
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: nil
+ * End:
+ */

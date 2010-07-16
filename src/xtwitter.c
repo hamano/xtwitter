@@ -46,7 +46,7 @@ XFontSet user_fonts;
 unsigned long color_black, color_white;
 int window_x, window_y;
 
-Imlib_Image* image;
+Imlib_Image *image;
 
 int xtwitter_x_init()
 {
@@ -335,12 +335,9 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     }while((statuses = g_list_previous(statuses)));
 }
 
-void xtwitter_loop()
+void xtwitter_loop(twitter_t *twitter)
 {
-    twitter_t *twitter = NULL;
     GList* timeline = NULL;
-    twitter = twitter_new();
-    twitter_config(twitter);
 
 /*
     if(!twitter->debug){
@@ -361,7 +358,32 @@ void xtwitter_loop()
         timeline = NULL;
         sleep(twitter->fetch_interval);
     }
-    twitter_free(twitter);
+}
+
+void xtwitter_search_loop(twitter_t *twitter, const char *word)
+{
+    GList* timeline = NULL;
+
+    if(!twitter->debug){
+        timeline = twitter_friends_timeline(twitter);
+        twitter_statuses_free(timeline);
+    }
+	timeline = twitter_search_timeline(twitter, word);
+	twitter_statuses_free(timeline);
+	return;
+
+    while(1){
+        timeline = twitter_friends_timeline(twitter);
+        if(twitter->debug >= 2){
+            printf("timeline num: %d\n", g_list_length(timeline));
+		}
+
+        twitter_fetch_images(twitter, timeline);
+        xtwitter_show_timeline(twitter, timeline);
+        twitter_statuses_free(timeline);
+        timeline = NULL;
+        sleep(twitter->fetch_interval);
+    }
 }
 
 void xtwitter_update(const char *text)
@@ -429,13 +451,25 @@ static void daemonize(void)
 int main(int argc, char *argv[]){
     int ret = -1;
     int opt;
+    int opt_debug = 0;
+    int opt_search = 0;
     int opt_daemonize = 0;
+	char opt_search_word[1024];
+    twitter_t *twitter = NULL;
 
-    while((opt = getopt(argc, argv, "du:vD")) != -1){
+    while((opt = getopt(argc, argv, "ds:u:vD")) != -1){
         switch(opt){
         case 'd':
-            printf("option d\n");
+			opt_debug++;
             break;
+        case 's':
+			opt_search = 1;
+			if(optarg[0] == '#'){
+				snprintf(opt_search_word, 1024, "%%23%s", optarg + 1);
+			}else{
+				snprintf(opt_search_word, 1024, "%s", optarg);
+			}
+			break;
         case 'u':
             if(!strcmp(optarg, "-")){
                 xtwitter_update_stdin();
@@ -476,6 +510,17 @@ int main(int argc, char *argv[]){
         daemonize();
     }
 
-    xtwitter_loop();
+    twitter = twitter_new();
+    twitter_config(twitter);
+	if(opt_debug){
+		twitter->debug = opt_debug;
+	}
+	printf("debug: %d\n", twitter->debug);
+	if(opt_search){
+		xtwitter_search_loop(twitter, opt_search_word);
+	}else{
+		xtwitter_loop(twitter);
+	}
+    twitter_free(twitter);
     return EXIT_SUCCESS;
 }
