@@ -486,7 +486,7 @@ int main(int argc, char *argv[]){
         default:
             fprintf(stderr, "usage:\n");
             fprintf(stderr, "  %s\n", PACKAGE);
-            fprintf(stderr, "  or\n", PACKAGE);
+            fprintf(stderr, "  or\n");
             fprintf(stderr, "  %s -u \"update status\"\n", PACKAGE);
             return EXIT_FAILURE;
         }

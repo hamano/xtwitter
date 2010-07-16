@@ -1,45 +1,41 @@
-2009-09-16  Tsukasa Hamano  <code@cuspy.org>
+2010-07-16  Tsukasa Hamano  <code@cuspy.org>
+	* resiging big icon
+	* release 0.9.1
 
+2009-09-16  Tsukasa Hamano  <code@cuspy.org>
 	* added Expect http header.
 	* accept update message from stdin, thanx to @ezpze
 	* added daemonize option.
 	* release 0.8
 
 2009-07-30  Tsukasa Hamano  <code@cuspy.org>
-
 	* fix bug.
 	* release 0.7
 
 2008-12-15  Tsukasa Hamano  <code@cuspy.org>
-
 	* modified text alignment(for X).
 	* xml unescape and escape.
 	* created debian package.
 	* release 0.6
 
 2008-12-09  Tsukasa Hamano  <code@cuspy.org>
-
 	* added new popup method that use libnotify.
 	* release 0.5
 
 2008-12-05  Tsukasa Hamano  <code@cuspy.org>
-
 	* added -v option print version.
 	* fixed bug downloading failed for profile image url containing utf-8 char.
 	* release 0.4
 
 2008-11-12  Tsukasa Hamano  <code@cuspy.org>
-
 	* added function to draw alignment text.
 	* fixed bug segmentation fault when loading wrong image file.
 	* release 0.3
 
 2008-11-11  Tsukasa Hamano  <code@cuspy.org>
-
 	* added curl option CURLOPT_SSL_VERIFYPEER and CURLOPT_SSL_VERIFYHOST
 	* added function to fetch and display twitter icons.
 	* release 0.2
 
 2008-11-09  Tsukasa Hamano  <code@cuspy.org>
-
 	* release 0.1.
