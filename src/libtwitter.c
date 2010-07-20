@@ -174,11 +174,21 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)buf);
+    // 2010-07-20 bug
+    curl_easy_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, 1);
 
     code = curl_easy_perform(curl);
     if(code){
         fprintf(stderr, "error: %s\n", curl_easy_strerror(code));
         return -1;
+    }
+    if(twitter->debug >= 2){
+        curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &res);
+        fprintf(stderr, "content length: %ld\n", res);
+    }
+    if(twitter->debug >= 3){
+        fwrite(buf->data, 1, buf->len, stderr);
+        fprintf(stderr, "\n");
     }
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
     if(res != 200){
