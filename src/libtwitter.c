@@ -182,10 +182,6 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
         fprintf(stderr, "error: %s\n", curl_easy_strerror(code));
         return -1;
     }
-    if(twitter->debug >= 2){
-        curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &res);
-        fprintf(stderr, "content length: %ld\n", res);
-    }
     if(twitter->debug >= 3){
         fwrite(buf->data, 1, buf->len, stderr);
         fprintf(stderr, "\n");
@@ -583,15 +579,116 @@ int twitter_resize_image(twitter_t *twitter, const char* path)
     return 0;
 }
 
+twitter_user_t* twitter_parse_author_node(xmlTextReaderPtr reader){
+    int ret;
+    xmlElementType type;
+    xmlChar *name;
+    twitter_user_t *user;
+    char *name_tmp;
+
+    user = (twitter_user_t *)malloc(sizeof(twitter_user_t));
+    memset(user, 0, sizeof(twitter_user_t));
+    do{
+        ret = xmlTextReaderRead(reader);
+        type = xmlTextReaderNodeType(reader);
+        if (type == XML_READER_TYPE_ELEMENT){
+            name = xmlTextReaderName(reader);
+            if(!xmlStrcmp(name, (xmlChar *)"name")){
+                ret = xmlTextReaderRead(reader);
+                user->id = strdup("");
+                user->screen_name = (const char *)xmlTextReaderValue(reader);
+                name_tmp = strchr(user->screen_name, ' ');
+                if(*name_tmp){
+                    *name_tmp = '\0';
+                }
+                user->profile_image_url = strdup("");
+            }
+            xmlFree(name);
+        }else if(type == XML_READER_TYPE_END_ELEMENT){
+            name = xmlTextReaderName(reader);
+            if(!xmlStrcmp(name, (xmlChar *)"author")){
+                xmlFree(name);
+                break;
+            }
+            xmlFree(name);
+        }
+    }while(ret == 1);
+    return user;
+}
+
+twitter_status_t* twitter_parse_entry_node(xmlTextReaderPtr reader){
+    int ret;
+    xmlElementType type;
+    xmlChar *name;
+    twitter_status_t *status;
+    status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
+    memset(status, 0, sizeof(twitter_status_t));
+
+    do{
+        ret = xmlTextReaderRead(reader);
+        type = xmlTextReaderNodeType(reader);
+        if (type == XML_READER_TYPE_ELEMENT){
+            name = xmlTextReaderName(reader);
+            if (!xmlStrcmp(name, (xmlChar *)"created_at")){
+                ret = xmlTextReaderRead(reader);
+                status->created_at = (const char *)xmlTextReaderValue(reader);
+            }else if (!xmlStrcmp(name, (xmlChar *)"id")){
+                ret = xmlTextReaderRead(reader);
+                status->id = (const char *)xmlTextReaderValue(reader);
+            }else if (!xmlStrcmp(name, (xmlChar *)"title")){
+                ret = xmlTextReaderRead(reader);
+                status->text = (const char *)xmlTextReaderValue(reader);
+            }else if (!xmlStrcmp(name, (xmlChar *)"author")){
+                status->user = twitter_parse_author_node(reader);
+            }
+            xmlFree(name);
+        } else if (type == XML_READER_TYPE_END_ELEMENT){
+            name = xmlTextReaderName(reader);
+            if (!xmlStrcmp(name, (xmlChar *)"entry")){
+                xmlFree(name);
+                break;
+            }
+            xmlFree(name);
+        }
+    }while(ret == 1);
+    return status;
+}
+
+GList* twitter_parse_atom(xmlTextReaderPtr reader)
+{
+    int ret;
+    xmlElementType type;
+    xmlChar *name;
+    GList* statuses = NULL;
+    twitter_status_t *status;
+
+    do{
+        ret = xmlTextReaderRead(reader);
+        type = xmlTextReaderNodeType(reader);
+        if(type == XML_READER_TYPE_ELEMENT) {
+            name = xmlTextReaderName(reader);
+            if(!xmlStrcmp(name, (xmlChar *)"entry")) {
+                status = twitter_parse_entry_node(reader);
+                if(status){
+                    statuses = g_list_append(statuses, status);
+                }
+            }
+            xmlFree(name);
+        }
+    }while(ret == 1);
+    return statuses;
+}
+
 GList* twitter_search_timeline(twitter_t *twitter, const char *word)
 {
     int ret;
-    //GList *timeline = NULL;
+    GList *timeline = NULL;
     GByteArray *buf;
     xmlTextReaderPtr reader;
     char api_uri[PATH_MAX];
-    //twitter_status_t *status;
-
+    twitter_status_t *status;
+    char *id;
+    printf("search word: %s\n", word);
     snprintf(api_uri, PATH_MAX, "%s?q=%s&since_id=%llu",
              TWITTER_SEARCH_URI,
 			 word,
@@ -606,24 +703,30 @@ GList* twitter_search_timeline(twitter_t *twitter, const char *word)
         printf("ERROR: twitter_fetch()\n");
         return NULL;
     }
-//	printf("%s\n", buf->data);
+    if(twitter->debug >= 3){
+        printf("%s\n", buf->data);
+    }
     reader = xmlReaderForMemory((const char *)buf->data, buf->len,
                                 NULL, NULL, 0);
-/*
-    timeline = twitter_parse_statuses_node(reader);
+    timeline = twitter_parse_atom(reader);
     xmlFreeTextReader(reader);
     g_byte_array_free (buf, TRUE);
-//    xmlMemoryDump();
+    xmlMemoryDump();
 
     if(timeline){
         status = timeline->data;
-        twitter->last_friends_timeline = atoll(status->id);
+        id = strchr(status->id, ':');
+        if(id){
+            id = strchr(++id, ':');
+            id++;
+            twitter->last_friends_timeline = atoll(id);
+        }else{
+            twitter->last_friends_timeline = 0;
+        }
     }
-
     return timeline;
-*/
-	return NULL;
 }
+
 /*
  * Local variables:
  * tab-width: 4

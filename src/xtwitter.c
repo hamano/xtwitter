@@ -184,7 +184,7 @@ int xtwitter_libnotify_popup(twitter_t *twitter, twitter_status_t *status)
     xmlunescape((char*)status->text);
     xmlescape(text, status->text, 2048);
     twitter_image_name(status, image_name);
-    snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
+	snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
     notify = notify_notification_new(status->user->screen_name,
                                      text, image_path, NULL);
     notify_notification_show(notify, NULL);
@@ -368,17 +368,14 @@ void xtwitter_search_loop(twitter_t *twitter, const char *word)
         timeline = twitter_friends_timeline(twitter);
         twitter_statuses_free(timeline);
     }
-	timeline = twitter_search_timeline(twitter, word);
-	twitter_statuses_free(timeline);
-	return;
 
     while(1){
-        timeline = twitter_friends_timeline(twitter);
+        timeline = twitter_search_timeline(twitter, word);
         if(twitter->debug >= 2){
             printf("timeline num: %d\n", g_list_length(timeline));
 		}
 
-        twitter_fetch_images(twitter, timeline);
+        //twitter_fetch_images(twitter, timeline);
         xtwitter_show_timeline(twitter, timeline);
         twitter_statuses_free(timeline);
         timeline = NULL;
