@@ -19,8 +19,9 @@
 
 #include <time.h>
 
-#define TWITTER_BASE_URI "https://twitter.com"
+#define TWITTER_BASE_URI "https://api.twitter.com"
 #define TWITTER_API_PATH_FRIENDS_TIMELINE "/statuses/friends_timeline.xml"
+#define TWITTER_API_PATH_HOME_TIMELINE "/statuses/home_timeline.xml"
 #define TWITTER_API_PATH_UPDATE "/statuses/update.xml"
 #define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
 #define TWITTER_API_SEARCH "/search.atom"
@@ -30,6 +31,10 @@ typedef struct{
     const char *user;
     const char *pass;
     const char *source;
+    const char *consumer_key;
+    const char *consumer_secret;
+    const char *token_key;
+    const char *token_secret;
     char res_dir[PATH_MAX];
     char images_dir[PATH_MAX];
     unsigned long long last_friends_timeline;
@@ -61,6 +66,7 @@ int twitter_config(twitter_t *twitter);
 int twitter_fetch(twitter_t *twitter, const char *api_uri, GByteArray *buf);
 int twitter_update(twitter_t *twitter, const char *status);
 GList* twitter_friends_timeline(twitter_t *twitter);
+GList* twitter_home_timeline(twitter_t *twitter);
 GList* twitter_parse_statuses_node(xmlTextReaderPtr reader);
 twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader);
 twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader);

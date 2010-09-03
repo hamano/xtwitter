@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT
-AM_INIT_AUTOMAKE(xtwitter, 0.9.2)
+AM_INIT_AUTOMAKE(xtwitter, 0.9.3)
 AC_CONFIG_SRCDIR([src/xtwitter.c])
 AM_CONFIG_HEADER(config.h)
 
@@ -15,6 +15,7 @@ PKG_CHECK_MODULES(IMLIB, imlib2)
 PKG_CHECK_MODULES(GLIB, glib-2.0)
 PKG_CHECK_MODULES(CURL, libcurl)
 PKG_CHECK_MODULES(XML, libxml-2.0)
+PKG_CHECK_MODULES(OAUTH, oauth)
 
 AC_ARG_ENABLE(libnotify,
 [AC_HELP_STRING([--enable-libnotify], [use the libnotify [default=no]])])

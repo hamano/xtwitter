@@ -339,13 +339,6 @@ void xtwitter_loop(twitter_t *twitter)
 {
     GList* timeline = NULL;
 
-/*
-    if(!twitter->debug){
-        timeline = twitter_friends_timeline(twitter);
-        twitter_statuses_free(timeline);
-    }
-*/
-
     while(1){
         timeline = twitter_friends_timeline(twitter);
         if(twitter->debug >= 2){
@@ -363,11 +356,6 @@ void xtwitter_loop(twitter_t *twitter)
 void xtwitter_search_loop(twitter_t *twitter, const char *word)
 {
     GList* timeline = NULL;
-
-    if(!twitter->debug){
-        timeline = twitter_friends_timeline(twitter);
-        twitter_statuses_free(timeline);
-    }
 
     while(1){
         timeline = twitter_search_timeline(twitter, word);

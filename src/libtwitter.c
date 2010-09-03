@@ -28,6 +28,7 @@
 #include <curl/curl.h>
 #include <libxml/xmlreader.h>
 #include <Imlib2.h>
+#include <oauth.h>
 #include "libtwitter.h"
 
 twitter_t* twitter_new()
@@ -43,9 +44,11 @@ twitter_t* twitter_new()
     twitter->base_uri = TWITTER_BASE_URI;
     twitter->user = NULL;
     twitter->pass = NULL;
+    twitter->consumer_key = "9NIndmJSFJGRQOhkLB788g";
+    twitter->consumer_secret = "5sglfSQ0Uiec119i5psSghRO2VO9VIsjpvNb06HHo";
     twitter->source = "Xtwitter";
     twitter->last_friends_timeline = 1;
-    twitter->fetch_interval = 60;
+    twitter->fetch_interval = 30;
     twitter->show_interval = 5;
     twitter->alignment = 2;
     twitter->debug = 0;
@@ -128,18 +131,11 @@ int twitter_config(twitter_t *twitter)
                 fprintf(stderr, "config read error:\n");
             }
         }
-        if(!strcmp(key, "alignment")){
-            if(!strcmp(value, "top_left")){
-                twitter->alignment = 0;
-            }else if(!strcmp(value, "top_right")){
-                twitter->alignment = 1;
-            }else if(!strcmp(value, "bottom_left")){
-                twitter->alignment = 2;
-            }else if(!strcmp(value, "bottom_right")){
-                twitter->alignment = 3;
-            }else{
-                twitter->alignment = 2;
-            }
+        if(!strcmp(key, "token_key")){
+            twitter->token_key = strdup(value);
+        }
+        if(!strcmp(key, "token_secret")){
+            twitter->token_secret = strdup(value);
         }
     }
     fclose(fp);
@@ -159,8 +155,6 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     CURL *curl;
     CURLcode code;
     long res;
-    char userpass[256];
-    snprintf(userpass, 256, "%s:%s", twitter->user, twitter->pass);
     curl = curl_easy_init();
     if(!curl){
         fprintf(stderr, "error: curl_easy_init()\n");
@@ -170,8 +164,10 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     curl_easy_setopt(curl, CURLOPT_URL, apiuri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
-    curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-    curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
+    /* 2010-08-31 no need basic auth
+      curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+      curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
+    */
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)buf);
     // 2010-07-20 bug
@@ -206,9 +202,8 @@ int twitter_update(twitter_t *twitter, const char *status)
     struct curl_httppost *lastptr=NULL;
     struct curl_slist *headers=NULL;
     GByteArray *buf;
-    char userpass[256];
+    char *req_uri;
 
-    snprintf(userpass, 256, "%s:%s", twitter->user, twitter->pass);
     buf = g_byte_array_new();
     curl = curl_easy_init();
     if(!curl) {
@@ -217,8 +212,16 @@ int twitter_update(twitter_t *twitter, const char *status)
     }
     snprintf(api_uri, PATH_MAX, "%s%s",
              twitter->base_uri, TWITTER_API_PATH_UPDATE);
-    if(twitter->debug >= 2)
+
+    req_uri = oauth_sign_url2(
+        api_uri, NULL, OA_HMAC, "POST",
+        twitter->consumer_key, twitter->consumer_secret,
+        twitter->token_key, twitter->token_secret);
+
+    if(twitter->debug >= 2){
         printf("api_uri: %s\n", api_uri);
+        printf("req_uri: %s\n", req_uri);
+    }
 
     headers = curl_slist_append(headers, "Expect:");
 
@@ -232,11 +235,11 @@ int twitter_update(twitter_t *twitter, const char *status)
                  CURLFORM_COPYCONTENTS, twitter->source,
                  CURLFORM_END);
 
-    curl_easy_setopt(curl, CURLOPT_URL, api_uri);
+    curl_easy_setopt(curl, CURLOPT_URL, req_uri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
-    curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-    curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
+    //curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    //curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)buf);
     curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
@@ -262,7 +265,7 @@ int twitter_update(twitter_t *twitter, const char *status)
     return 0;
 }
 
-GList* twitter_friends_timeline(twitter_t *twitter)
+GList* twitter_home_timeline(twitter_t *twitter)
 {
     int ret;
     GList *timeline = NULL;
@@ -272,16 +275,23 @@ GList* twitter_friends_timeline(twitter_t *twitter)
     twitter_status_t *status;
 
     snprintf(api_uri, PATH_MAX, "%s%s?since_id=%llu",
-             twitter->base_uri, TWITTER_API_PATH_FRIENDS_TIMELINE,
+             twitter->base_uri, TWITTER_API_PATH_HOME_TIMELINE,
              twitter->last_friends_timeline);
-    if(twitter->debug > 1)
+    char *req_uri = oauth_sign_url2(
+        api_uri, NULL, OA_HMAC, "GET",
+        twitter->consumer_key, twitter->consumer_secret,
+        twitter->token_key, twitter->token_secret);
+
+    if(twitter->debug > 1){
         printf("api_uri: %s\n", api_uri);
+        printf("req_uri: %s\n", req_uri);
+    }
 
     buf = g_byte_array_new();
-
-    ret = twitter_fetch(twitter, api_uri, buf);
+    ret = twitter_fetch(twitter, req_uri, buf);
     if(ret){
         printf("ERROR: twitter_fetch()\n");
+        free(req_uri);
         return NULL;
     }
     reader = xmlReaderForMemory((const char *)buf->data, buf->len,
@@ -295,7 +305,51 @@ GList* twitter_friends_timeline(twitter_t *twitter)
         status = timeline->data;
         twitter->last_friends_timeline = atoll(status->id);
     }
+    free(req_uri);
+    return timeline;
+}
 
+GList* twitter_friends_timeline(twitter_t *twitter)
+{
+    int ret;
+    GList *timeline = NULL;
+    GByteArray *buf;
+    xmlTextReaderPtr reader;
+    char api_uri[PATH_MAX];
+    twitter_status_t *status;
+
+    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%llu",
+             twitter->base_uri, TWITTER_API_PATH_FRIENDS_TIMELINE,
+             twitter->last_friends_timeline);
+    char *req_uri = oauth_sign_url2(
+        api_uri, NULL, OA_HMAC, "GET",
+        twitter->consumer_key, twitter->consumer_secret,
+        twitter->token_key, twitter->token_secret);
+
+    if(twitter->debug > 1){
+        printf("api_uri: %s\n", api_uri);
+        printf("req_uri: %s\n", req_uri);
+    }
+
+    buf = g_byte_array_new();
+    ret = twitter_fetch(twitter, req_uri, buf);
+    if(ret){
+        printf("ERROR: twitter_fetch()\n");
+        free(req_uri);
+        return NULL;
+    }
+    reader = xmlReaderForMemory((const char *)buf->data, buf->len,
+                                NULL, NULL, 0);
+    timeline = twitter_parse_statuses_node(reader);
+    xmlFreeTextReader(reader);
+    g_byte_array_free (buf, TRUE);
+//    xmlMemoryDump();
+
+    if(timeline){
+        status = timeline->data;
+        twitter->last_friends_timeline = atoll(status->id);
+    }
+    free(req_uri);
     return timeline;
 }
 
