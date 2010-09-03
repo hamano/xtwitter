@@ -219,7 +219,7 @@ int twitter_update(twitter_t *twitter, const char *status)
         twitter->token_key, twitter->token_secret);
 
     if(twitter->debug >= 2){
-        printf("api_uri: %s\n", api_uri);
+        //printf("api_uri: %s\n", api_uri);
         printf("req_uri: %s\n", req_uri);
     }
 
@@ -236,6 +236,7 @@ int twitter_update(twitter_t *twitter, const char *status)
                  CURLFORM_END);
 
     curl_easy_setopt(curl, CURLOPT_URL, req_uri);
+    free(req_uri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
     //curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
@@ -326,8 +327,8 @@ GList* twitter_friends_timeline(twitter_t *twitter)
         twitter->consumer_key, twitter->consumer_secret,
         twitter->token_key, twitter->token_secret);
 
-    if(twitter->debug > 1){
-        printf("api_uri: %s\n", api_uri);
+    if(twitter->debug >= 2){
+        //printf("api_uri: %s\n", api_uri);
         printf("req_uri: %s\n", req_uri);
     }
 

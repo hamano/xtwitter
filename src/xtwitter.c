@@ -371,12 +371,10 @@ void xtwitter_search_loop(twitter_t *twitter, const char *word)
     }
 }
 
-void xtwitter_update(const char *text)
+void xtwitter_update(twitter_t *twitter, const char *text)
 {
     int count;
-    twitter_t *twitter = NULL;
 
-    twitter = twitter_new();
     count = xtwitter_count(text);
 	if(twitter->debug >= 1){
 		printf("count: %d\n", count);
@@ -388,19 +386,15 @@ void xtwitter_update(const char *text)
 	}
     fprintf(stdout, "updating...");
     fflush(stdout);
-
-    twitter_config(twitter);
     twitter_update(twitter, text);
-    twitter_free(twitter);
-
     fprintf(stdout, "done\n");
 }
 
-void xtwitter_update_stdin()
+void xtwitter_update_stdin(twitter_t *twitter)
 {
     char text[1024];
     fgets(text, 1024, stdin);
-    xtwitter_update(text);
+    xtwitter_update(twitter, text);
 }
 
 static void daemonize(void)
@@ -439,7 +433,8 @@ int main(int argc, char *argv[]){
     int opt_debug = 0;
     int opt_search = 0;
     int opt_daemonize = 0;
-	char opt_search_word[1024];
+    char opt_search_word[1024];
+    char *opt_update = NULL;
     twitter_t *twitter = NULL;
 
     while((opt = getopt(argc, argv, "ds:u:vD")) != -1){
@@ -456,12 +451,8 @@ int main(int argc, char *argv[]){
 			}
 			break;
         case 'u':
-            if(!strcmp(optarg, "-")){
-                xtwitter_update_stdin();
-            }else{
-                xtwitter_update(optarg);
-            }
-            return EXIT_SUCCESS;
+            opt_update = optarg;
+            break;
         case 'v':
             printf("%s %s\n", PACKAGE, VERSION);
             return EXIT_SUCCESS;
@@ -475,6 +466,23 @@ int main(int argc, char *argv[]){
             fprintf(stderr, "  %s -u \"update status\"\n", PACKAGE);
             return EXIT_FAILURE;
         }
+    }
+
+    twitter = twitter_new();
+    twitter_config(twitter);
+	if(opt_debug){
+		twitter->debug = opt_debug;
+	}
+	printf("debug: %d\n", twitter->debug);
+
+    if(opt_update){
+        if(!strcmp(opt_update, "-")){
+            xtwitter_update_stdin(twitter);
+        }else{
+            xtwitter_update(twitter, opt_update);
+        }
+        twitter_free(twitter);
+        return EXIT_SUCCESS;
     }
 
 #ifdef ENABLE_LIBNOTIFY
@@ -495,12 +503,6 @@ int main(int argc, char *argv[]){
         daemonize();
     }
 
-    twitter = twitter_new();
-    twitter_config(twitter);
-	if(opt_debug){
-		twitter->debug = opt_debug;
-	}
-	printf("debug: %d\n", twitter->debug);
 	if(opt_search){
 		xtwitter_search_loop(twitter, opt_search_word);
 	}else{
@@ -509,3 +511,11 @@ int main(int argc, char *argv[]){
     twitter_free(twitter);
     return EXIT_SUCCESS;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: nil
+ * End:
+ */
