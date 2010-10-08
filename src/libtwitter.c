@@ -66,6 +66,12 @@ void twitter_free(twitter_t *twitter)
     if(twitter->pass){
         free((char*)(twitter->pass));
     }
+    if(twitter->consumer_key){
+        free((char*)(twitter->consumer_key));
+    }
+    if(twitter->consumer_key){
+        free((char *)twitter->consumer_secret);
+    }
     free(twitter);
     return;
 }
@@ -140,6 +146,59 @@ int twitter_config(twitter_t *twitter)
     }
     fclose(fp);
     return 0;
+}
+
+int twitter_xauth(twitter_t *twitter)
+{
+    char access_token_uri[PATH_MAX];
+    char parm_user[256];
+    char parm_pass[256];
+    int argc = 4;
+    char **argv = (char **)malloc(sizeof(char*) * 4);
+    char *req_url = NULL;
+    char *postargs = NULL;
+    char *res = NULL;
+    char *t;
+
+    snprintf(access_token_uri, PATH_MAX, "%s%s",
+             twitter->base_uri, TWITTER_API_ACCESS_TOKEN);
+
+    argv[0] = access_token_uri;
+    argv[1] = strdup("x_auth_mode=client_auth");
+    snprintf(parm_user, sizeof(parm_user), "x_auth_username=%s",
+             twitter->user);
+    snprintf(parm_pass, sizeof(parm_pass), "x_auth_password=%s",
+             twitter->pass);
+    argv[2] = parm_user;
+    argv[3] = parm_pass;
+
+    req_url = oauth_sign_array2(&argc, &argv, &postargs, OA_HMAC, NULL,
+                                twitter->consumer_key,
+                                twitter->consumer_secret,
+                                NULL, NULL);
+
+    res = oauth_http_post(req_url, postargs);
+    if(twitter->debug >= 3){
+        printf("res: %s\n", res);
+    }
+
+    t = strtok(res, "&");
+    do{
+        if(!strncmp(t, "oauth_token=", 12)){
+            twitter->token_key = strdup(t + 12);
+        }
+        if(!strncmp(t, "oauth_token_secret=", 19)){
+            twitter->token_secret = strdup(t + 19);
+        }
+        t = strtok(NULL, "&");
+    }while(t != NULL);
+    free(res);
+    free(argv);
+    if(twitter->token_key && twitter->token_secret){
+        return 0;
+    }else{
+        return -1;
+    }
 }
 
 static size_t twitter_curl_write_cb(void *ptr, size_t size, size_t nmemb,

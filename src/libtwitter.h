@@ -25,6 +25,7 @@
 #define TWITTER_API_PATH_UPDATE "/statuses/update.xml"
 #define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
 #define TWITTER_API_SEARCH "/search.atom"
+#define TWITTER_API_ACCESS_TOKEN "/oauth/access_token"
 
 typedef struct{
     const char *base_uri;

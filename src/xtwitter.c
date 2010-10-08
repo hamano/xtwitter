@@ -428,7 +428,7 @@ static void daemonize(void)
 }
 
 int main(int argc, char *argv[]){
-    int ret = -1;
+    int ret;
     int opt;
     int opt_debug = 0;
     int opt_search = 0;
@@ -470,10 +470,16 @@ int main(int argc, char *argv[]){
 
     twitter = twitter_new();
     twitter_config(twitter);
-	if(opt_debug){
-		twitter->debug = opt_debug;
-	}
-	printf("debug: %d\n", twitter->debug);
+    ret = twitter_xauth(twitter);
+    if(ret){
+        fprintf(stderr, "error: xAuth failed.\n");
+        return EXIT_FAILURE;
+    }
+
+    if(opt_debug){
+        twitter->debug = opt_debug;
+        printf("debug: %d\n", twitter->debug);
+    }
 
     if(opt_update){
         if(!strcmp(opt_update, "-")){
