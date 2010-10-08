@@ -44,14 +44,16 @@ twitter_t* twitter_new()
     twitter->base_uri = TWITTER_BASE_URI;
     twitter->user = NULL;
     twitter->pass = NULL;
-    twitter->consumer_key = "9NIndmJSFJGRQOhkLB788g";
-    twitter->consumer_secret = "5sglfSQ0Uiec119i5psSghRO2VO9VIsjpvNb06HHo";
     twitter->source = "Xtwitter";
     twitter->last_friends_timeline = 1;
     twitter->fetch_interval = 30;
     twitter->show_interval = 5;
     twitter->alignment = 2;
     twitter->debug = 0;
+    twitter->consumer_key = "9poct2ZKf927Sjb3ZprdQ";
+    twitter->consumer_secret = "xYGTxLldXFcm20hUSfztZtaHSViEr6xOQLJVAc5RI";
+    twitter->token_key = NULL;
+    twitter->token_secret = NULL;
     snprintf(twitter->res_dir, PATH_MAX, "%s/.xtwitter", home);
     snprintf(twitter->images_dir, PATH_MAX, "%s/.xtwitter/images", home);
 
@@ -66,11 +68,11 @@ void twitter_free(twitter_t *twitter)
     if(twitter->pass){
         free((char*)(twitter->pass));
     }
-    if(twitter->consumer_key){
-        free((char*)(twitter->consumer_key));
+    if(twitter->token_key){
+        free((char *)twitter->token_key);
     }
-    if(twitter->consumer_key){
-        free((char *)twitter->consumer_secret);
+    if(twitter->token_secret){
+        free((char *)twitter->token_secret);
     }
     free(twitter);
     return;

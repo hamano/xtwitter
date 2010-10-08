@@ -63,6 +63,7 @@ typedef struct{
 twitter_t *twitter_new();
 void twitter_free(twitter_t *twitter);
 int twitter_config(twitter_t *twitter);
+int twitter_xauth(twitter_t *twitter);
 
 int twitter_fetch(twitter_t *twitter, const char *api_uri, GByteArray *buf);
 int twitter_update(twitter_t *twitter, const char *status);
@@ -76,7 +77,10 @@ GList* twitter_search_timeline(twitter_t *twitter, const char *word);
 
 void twitter_statuses_free(GList *statuses);
 void twitter_status_print(twitter_status_t *status);
+void twitter_status_print(twitter_status_t *status);
+void twitter_status_dump(twitter_status_t *status);
 
+int twitter_image_name(twitter_status_t *status, char *name);
 int twitter_fetch_images(twitter_t *twitter, GList *statuses);
 int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path);
 int twitter_resize_image(twitter_t *twitter, const char* path);
