@@ -45,7 +45,8 @@ twitter_t* twitter_new()
     twitter->user = NULL;
     twitter->pass = NULL;
     twitter->source = "Xtwitter";
-    twitter->last_friends_timeline = 1;
+    twitter->lang = NULL;
+    twitter->last_friends_timeline = -1;
     twitter->fetch_interval = 30;
     twitter->show_interval = 5;
     twitter->alignment = 2;
@@ -336,7 +337,7 @@ GList* twitter_home_timeline(twitter_t *twitter)
     char api_uri[PATH_MAX];
     twitter_status_t *status;
 
-    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%llu",
+    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%lld",
              twitter->base_uri, TWITTER_API_PATH_HOME_TIMELINE,
              twitter->last_friends_timeline);
     char *req_uri = oauth_sign_url2(
@@ -380,7 +381,7 @@ GList* twitter_friends_timeline(twitter_t *twitter)
     char api_uri[PATH_MAX];
     twitter_status_t *status;
 
-    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%llu",
+    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%lld",
              twitter->base_uri, TWITTER_API_PATH_FRIENDS_TIMELINE,
              twitter->last_friends_timeline);
     char *req_uri = oauth_sign_url2(
@@ -802,16 +803,26 @@ GList* twitter_search_timeline(twitter_t *twitter, const char *word)
     GByteArray *buf;
     xmlTextReaderPtr reader;
     char api_uri[PATH_MAX];
+    char api_param[PATH_MAX];
     twitter_status_t *status;
     char *id;
-    printf("search word: %s\n", word);
-    snprintf(api_uri, PATH_MAX, "%s?q=%s&since_id=%llu",
-             TWITTER_SEARCH_URI,
-			 word,
-             twitter->last_friends_timeline);
-    if(twitter->debug > 1)
-        printf("api_uri: %s\n", api_uri);
 
+    if(twitter->lang){
+        snprintf(api_param, PATH_MAX, "since_id=%lld&lang=%s&q=%s",
+                 twitter->last_friends_timeline,
+                 twitter->lang,
+                 word);
+    }else{
+        snprintf(api_param, PATH_MAX, "since_id=%lld&q=%s",
+                 twitter->last_friends_timeline,
+                 word);
+    }
+    snprintf(api_uri, PATH_MAX, "%s?%s", TWITTER_SEARCH_URI, api_param);
+
+    if(twitter->debug > 1){
+        printf("search word: %s\n", word);
+        printf("api_uri: %s\n", api_uri);
+    }
     buf = g_byte_array_new();
 
     ret = twitter_fetch(twitter, api_uri, buf);

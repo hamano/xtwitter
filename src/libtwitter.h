@@ -32,13 +32,14 @@ typedef struct{
     const char *user;
     const char *pass;
     const char *source;
+    const char *lang;
     const char *consumer_key;
     const char *consumer_secret;
     const char *token_key;
     const char *token_secret;
     char res_dir[PATH_MAX];
     char images_dir[PATH_MAX];
-    unsigned long long last_friends_timeline;
+    long long last_friends_timeline;
     int fetch_interval;
     int show_interval;
     int alignment;

@@ -173,7 +173,9 @@ int xtwitter_libnotify_init()
     return 0;
 }
 
-int xtwitter_libnotify_popup(twitter_t *twitter, twitter_status_t *status)
+int xtwitter_libnotify_popup(twitter_t *twitter,
+                             twitter_status_t *status,
+                             NotifyUrgency urgency)
 {
     NotifyNotification *notify;
     char image_name[PATH_MAX];
@@ -187,6 +189,7 @@ int xtwitter_libnotify_popup(twitter_t *twitter, twitter_status_t *status)
 	snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
     notify = notify_notification_new(status->user->screen_name,
                                      text, image_path, NULL);
+    notify_notification_set_urgency(notify, urgency);
     notify_notification_show(notify, NULL);
     sleep(twitter->show_interval);
     return 0;
@@ -327,7 +330,31 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
 		}
 
 #ifdef ENABLE_LIBNOTIFY
-        xtwitter_libnotify_popup(twitter, status);
+        xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_NORMAL);
+#else
+        xtwitter_x_popup(twitter, status);
+#endif
+
+    }while((statuses = g_list_previous(statuses)));
+}
+
+void xtwitter_show_search(twitter_t *twitter, GList *statuses){
+    twitter_status_t *status;
+    statuses = g_list_last(statuses);
+    if(!statuses){
+        return;
+    }
+    do{
+        status = statuses->data;
+
+        if(twitter->debug == 1){
+            twitter_status_print(status);
+		}else if(twitter->debug > 1){
+            twitter_status_dump(status);
+		}
+
+#ifdef ENABLE_LIBNOTIFY
+        xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_LOW);
 #else
         xtwitter_x_popup(twitter, status);
 #endif
@@ -364,7 +391,7 @@ void xtwitter_search_loop(twitter_t *twitter, const char *word)
 		}
 
         //twitter_fetch_images(twitter, timeline);
-        xtwitter_show_timeline(twitter, timeline);
+        xtwitter_show_search(twitter, timeline);
         twitter_statuses_free(timeline);
         timeline = NULL;
         sleep(twitter->fetch_interval);
@@ -435,9 +462,10 @@ int main(int argc, char *argv[]){
     int opt_daemonize = 0;
     char opt_search_word[1024];
     char *opt_update = NULL;
+    char *opt_lang = NULL;
     twitter_t *twitter = NULL;
 
-    while((opt = getopt(argc, argv, "ds:u:vD")) != -1){
+    while((opt = getopt(argc, argv, "ds:l:u:vD")) != -1){
         switch(opt){
         case 'd':
 			opt_debug++;
@@ -450,6 +478,9 @@ int main(int argc, char *argv[]){
 				snprintf(opt_search_word, 1024, "%s", optarg);
 			}
 			break;
+        case 'l':
+            opt_lang = optarg;
+            break;
         case 'u':
             opt_update = optarg;
             break;
@@ -479,6 +510,11 @@ int main(int argc, char *argv[]){
     if(opt_debug){
         twitter->debug = opt_debug;
         printf("debug: %d\n", twitter->debug);
+    }
+
+    if(opt_lang){
+        twitter->lang = opt_lang;
+        printf("lang: %s\n", twitter->lang);
     }
 
     if(opt_update){
