@@ -2,7 +2,7 @@ Source: xtwitter
 Section: net
 Priority: extra
 Maintainer: Tsukasa Hamano <hamano@cuspy.org>
-Build-Depends: debhelper (>= 7), autotools-dev, libxml2-dev
+Build-Depends: debhelper (>= 7), autotools-dev, libxml2-dev, libnotify-dev
 Standards-Version: 3.7.3
 Homepage: http://www.cuspy.org/xtwitter/
 
