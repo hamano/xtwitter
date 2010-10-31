@@ -181,8 +181,8 @@ int twitter_xauth(twitter_t *twitter)
                                 NULL, NULL);
 
     res = oauth_http_post(req_url, postargs);
-    if(twitter->debug >= 3){
-        printf("res: %s\n", res);
+    if(!res){
+        return -1;
     }
 
     t = strtok(res, "&");

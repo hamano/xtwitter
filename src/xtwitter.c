@@ -501,11 +501,6 @@ int main(int argc, char *argv[]){
 
     twitter = twitter_new();
     twitter_config(twitter);
-    ret = twitter_xauth(twitter);
-    if(ret){
-        fprintf(stderr, "error: xAuth failed.\n");
-        return EXIT_FAILURE;
-    }
 
     if(opt_debug){
         twitter->debug = opt_debug;
@@ -515,6 +510,12 @@ int main(int argc, char *argv[]){
     if(opt_lang){
         twitter->lang = opt_lang;
         printf("lang: %s\n", twitter->lang);
+    }
+
+    ret = twitter_xauth(twitter);
+    if(ret){
+        fprintf(stderr, "error: xAuth failed.\n");
+        return EXIT_FAILURE;
     }
 
     if(opt_update){
