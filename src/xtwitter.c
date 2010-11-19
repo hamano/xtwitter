@@ -29,6 +29,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
 #include <Imlib2.h>
+#include <regex.h>
 
 #ifdef ENABLE_LIBNOTIFY
 #include <libnotify/notify.h>
@@ -47,6 +48,7 @@ unsigned long color_black, color_white;
 int window_x, window_y;
 
 Imlib_Image *image;
+regex_t id_regex;
 
 int xtwitter_x_init()
 {
@@ -316,6 +318,10 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 
 void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     twitter_status_t *status;
+#ifdef ENABLE_LIBNOTIFY
+    int match;
+#endif
+
     statuses = g_list_last(statuses);
     if(!statuses){
         return;
@@ -330,7 +336,12 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
 		}
 
 #ifdef ENABLE_LIBNOTIFY
-        xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_NORMAL);
+        match = regexec(&id_regex, status->text, 0, NULL, 0);
+        if(match != REG_NOMATCH){
+            xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_CRITICAL);
+        }else{
+            xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_NORMAL);
+        }
 #else
         xtwitter_x_popup(twitter, status);
 #endif
@@ -527,6 +538,8 @@ int main(int argc, char *argv[]){
         twitter_free(twitter);
         return EXIT_SUCCESS;
     }
+
+    regcomp(&id_regex, twitter->user, REG_EXTENDED | REG_NOSUB);
 
 #ifdef ENABLE_LIBNOTIFY
     ret = xtwitter_libnotify_init();
