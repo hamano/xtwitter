@@ -8,7 +8,8 @@ Homepage: http://www.cuspy.org/xtwitter/
 
 Package: xtwitter
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+#Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libxml2, libnotify1, liboauth0
 Description: twitter client for X
  Xtwitter is very tiny twitter client for X Window System.
  It'll works on Linux, and other UNIX-like operating systems.
