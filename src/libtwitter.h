@@ -44,6 +44,7 @@ typedef struct{
     int show_interval;
     int alignment;
     int debug;
+    int quiet;
     int error;
 }twitter_t;
 

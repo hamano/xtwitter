@@ -329,10 +329,10 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     do{
         status = statuses->data;
 
-        if(twitter->debug == 1){
-            twitter_status_print(status);
-		}else if(twitter->debug > 1){
+        if(twitter->debug > 0){
             twitter_status_dump(status);
+		}else if(twitter->quiet == 0){
+            twitter_status_print(status);
 		}
 
 #ifdef ENABLE_LIBNOTIFY
@@ -358,10 +358,10 @@ void xtwitter_show_search(twitter_t *twitter, GList *statuses){
     do{
         status = statuses->data;
 
-        if(twitter->debug == 1){
-            twitter_status_print(status);
-		}else if(twitter->debug > 1){
+        if(twitter->debug > 0){
             twitter_status_dump(status);
+		}else if(twitter->quiet == 0){
+            twitter_status_print(status);
 		}
 
 #ifdef ENABLE_LIBNOTIFY

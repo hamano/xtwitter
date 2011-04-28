@@ -51,6 +51,7 @@ twitter_t* twitter_new()
     twitter->show_interval = 5;
     twitter->alignment = 2;
     twitter->debug = 0;
+    twitter->quiet = 0;
     twitter->consumer_key = "9poct2ZKf927Sjb3ZprdQ";
     twitter->consumer_secret = "xYGTxLldXFcm20hUSfztZtaHSViEr6xOQLJVAc5RI";
     twitter->token_key = NULL;
@@ -121,6 +122,9 @@ int twitter_config(twitter_t *twitter)
         value[strlen(value) - 1] = '\0';
         if(!strcmp(key, "debug")){
             twitter->debug = atoi(value);
+        }
+        if(!strcmp(key, "quiet")){
+            twitter->quiet = atoi(value);
         }
         if(!strcmp(key, "user")){
             twitter->user = strdup(value);
@@ -424,8 +428,7 @@ GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
     GList* statuses = NULL;
     twitter_status_t *status;
 
-    do{
-        ret = xmlTextReaderRead(reader);
+    while(xmlTextReaderRead(reader) == 1){
         type = xmlTextReaderNodeType(reader);
         if(type == XML_READER_TYPE_ELEMENT) {
             name = xmlTextReaderName(reader);
@@ -437,7 +440,7 @@ GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
             }
             xmlFree(name);
         }
-    }while(ret == 1);
+    }
     return statuses;
 }
 
@@ -445,13 +448,17 @@ twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader){
     int ret;
     xmlElementType type;
     xmlChar *name;
+    int depth;
     twitter_status_t *status;
     status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
     memset(status, 0, sizeof(twitter_status_t));
 
-    do{
-        ret = xmlTextReaderRead(reader);
+    while(xmlTextReaderRead(reader) == 1){
         type = xmlTextReaderNodeType(reader);
+        depth = xmlTextReaderDepth(reader);
+        if(depth > 2){
+            continue;
+        }
         if (type == XML_READER_TYPE_ELEMENT){
             name = xmlTextReaderName(reader);
             if (!xmlStrcmp(name, (xmlChar *)"created_at")){
@@ -475,7 +482,7 @@ twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader){
             }
             xmlFree(name);
         }
-    }while(ret == 1);
+    }
     return status;
 }
 
@@ -487,8 +494,7 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader){
 
     user = (twitter_user_t *)malloc(sizeof(twitter_user_t));
     memset(user, 0, sizeof(twitter_user_t));
-    do{
-        ret = xmlTextReaderRead(reader);
+    while(xmlTextReaderRead(reader) == 1){
         type = xmlTextReaderNodeType(reader);
         if (type == XML_READER_TYPE_ELEMENT){
             name = xmlTextReaderName(reader);
@@ -512,7 +518,7 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader){
             }
             xmlFree(name);
         }
-    }while(ret == 1);
+    }
     return user;
 }
 
