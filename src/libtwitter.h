@@ -37,6 +37,7 @@ typedef struct{
     const char *consumer_secret;
     const char *token_key;
     const char *token_secret;
+    const char *shortener;
     char res_dir[PATH_MAX];
     char images_dir[PATH_MAX];
     long long last_friends_timeline;
@@ -69,6 +70,9 @@ int twitter_xauth(twitter_t *twitter);
 
 int twitter_fetch(twitter_t *twitter, const char *api_uri, GByteArray *buf);
 int twitter_update(twitter_t *twitter, const char *status);
+int twitter_count(const char *text);
+int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext);
+
 GList* twitter_friends_timeline(twitter_t *twitter);
 GList* twitter_home_timeline(twitter_t *twitter);
 GList* twitter_parse_statuses_node(xmlTextReaderPtr reader);

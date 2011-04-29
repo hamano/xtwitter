@@ -217,24 +217,6 @@ int utf8pos(const char *str, int width){
     return i;
 }
 
-int xtwitter_count(const char *str){
-    int i=0;
-    unsigned char c;
-    int count=0;
-    while(str[i]){
-        count++;
-        c = (unsigned char)str[i];
-        if(c < 0x80){
-            i++;
-            continue;
-        }
-        while(c & 0x80){
-            c<<=1;
-            i++;
-        }
-    }
-    return count;
-}
 
 int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 {
@@ -329,7 +311,7 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     do{
         status = statuses->data;
 
-        if(twitter->debug > 0){
+        if(twitter->debug > 1){
             twitter_status_dump(status);
 		}else if(twitter->quiet == 0){
             twitter_status_print(status);
@@ -358,7 +340,7 @@ void xtwitter_show_search(twitter_t *twitter, GList *statuses){
     do{
         status = statuses->data;
 
-        if(twitter->debug > 0){
+        if(twitter->debug > 1){
             twitter_status_dump(status);
 		}else if(twitter->quiet == 0){
             twitter_status_print(status);
@@ -413,7 +395,7 @@ void xtwitter_update(twitter_t *twitter, const char *text)
 {
     int count;
 
-    count = xtwitter_count(text);
+    count = twitter_count(text);
 	if(twitter->debug >= 1){
 		printf("count: %d\n", count);
 	}
@@ -426,6 +408,23 @@ void xtwitter_update(twitter_t *twitter, const char *text)
     fflush(stdout);
     twitter_update(twitter, text);
     fprintf(stdout, "done\n");
+}
+
+void xtwitter_count(twitter_t *twitter, const char *text)
+{
+    int count;
+    char shortentext[PATH_MAX];
+    int ret;
+
+    count = twitter_count(text);
+    printf("text: %s\n", text);
+    printf("count: %d\n", count);
+
+    if(twitter->shortener){
+        ret = twitter_shorten(twitter, text, shortentext);
+    }
+    printf("shortencount: %d\n", twitter_count(shortentext));
+    printf("shortentext: %s\n", shortentext);
 }
 
 void xtwitter_update_stdin(twitter_t *twitter)
@@ -473,10 +472,12 @@ int main(int argc, char *argv[]){
     int opt_daemonize = 0;
     char opt_search_word[1024];
     char *opt_update = NULL;
+    char *opt_count = NULL;
     char *opt_lang = NULL;
+
     twitter_t *twitter = NULL;
 
-    while((opt = getopt(argc, argv, "ds:l:u:vD")) != -1){
+    while((opt = getopt(argc, argv, "ds:l:u:c:vD")) != -1){
         switch(opt){
         case 'd':
 			opt_debug++;
@@ -494,6 +495,9 @@ int main(int argc, char *argv[]){
             break;
         case 'u':
             opt_update = optarg;
+            break;
+        case 'c':
+            opt_count = optarg;
             break;
         case 'v':
             printf("%s %s\n", PACKAGE, VERSION);
@@ -523,9 +527,16 @@ int main(int argc, char *argv[]){
         printf("lang: %s\n", twitter->lang);
     }
 
+    if(opt_count){
+        xtwitter_count(twitter, opt_count);
+        twitter_free(twitter);
+        return EXIT_SUCCESS;
+    }
+
     ret = twitter_xauth(twitter);
     if(ret){
         fprintf(stderr, "error: xAuth failed.\n");
+        twitter_free(twitter);
         return EXIT_FAILURE;
     }
 

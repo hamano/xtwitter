@@ -29,6 +29,7 @@
 #include <libxml/xmlreader.h>
 #include <Imlib2.h>
 #include <oauth.h>
+#include <regex.h>
 #include "libtwitter.h"
 
 twitter_t* twitter_new()
@@ -59,6 +60,7 @@ twitter_t* twitter_new()
     snprintf(twitter->res_dir, PATH_MAX, "%s/.xtwitter", home);
     snprintf(twitter->images_dir, PATH_MAX, "%s/.xtwitter/images", home);
 
+    twitter->shortener = NULL;
     return twitter;
 }
 
@@ -149,6 +151,9 @@ int twitter_config(twitter_t *twitter)
         }
         if(!strcmp(key, "token_secret")){
             twitter->token_secret = strdup(value);
+        }
+        if(!strcmp(key, "shortener")){
+            twitter->shortener = strdup(value);
         }
     }
     fclose(fp);
@@ -422,7 +427,6 @@ GList* twitter_friends_timeline(twitter_t *twitter)
 
 GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
 {
-    int ret;
     xmlElementType type;
     xmlChar *name;
     GList* statuses = NULL;
@@ -858,6 +862,109 @@ GList* twitter_search_timeline(twitter_t *twitter, const char *word)
         }
     }
     return timeline;
+}
+
+int twitter_count(const char *text){
+    int i=0;
+    unsigned char c;
+    int count=0;
+
+    while(text[i]){
+        count++;
+        c = (unsigned char)text[i];
+        if(c < 0x80){
+            i++;
+            continue;
+        }
+        while(c & 0x80){
+            c<<=1;
+            i++;
+        }
+    }
+    return count;
+}
+
+int twitter_shorten_tinyurl(twitter_t *twitter,
+                            const char *url,
+                            char *shorten_url){
+    CURL *curl;
+    CURLcode code;
+    long res;
+    char shortener_url[PATH_MAX];
+
+    GByteArray *buf;
+    buf = g_byte_array_new();
+
+    curl = curl_easy_init();
+    if(!curl) {
+        printf("error: curl_easy_init()\n");
+        return -1;
+    }
+    snprintf(shortener_url, PATH_MAX,
+             "http://tinyurl.com/api-create.php?url=%s",
+             url);
+    if(twitter->debug > 0){
+        printf("shortener_url: %s\n", shortener_url);
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, shortener_url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)buf);
+
+    code = curl_easy_perform(curl);
+    if(code){
+        printf("error: %s\n", curl_easy_strerror(code));
+        return -1;
+    }
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
+    curl_easy_cleanup(curl);
+    if(res != 200){
+        printf("error respose code: %ld\n", res);
+        return res;
+    }
+    strncpy(shorten_url, (const char*)buf->data, buf->len);
+    if(buf->len < PATH_MAX){
+        shorten_url[buf->len] = '\0';
+    }else{
+        shorten_url[PATH_MAX - 1] = '\0';
+    }
+    return 0;
+}
+
+int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext){
+    regex_t url_regex;
+    int ret;
+    regmatch_t match[1];
+    int i = 0;
+    int j = 0;
+    char url[PATH_MAX];
+    char shorten_url[PATH_MAX];
+    size_t shorten_len;
+
+    regcomp(&url_regex, "^http://[^ ]*", REG_EXTENDED);
+    while(text[i]){
+        ret = regexec(&url_regex, text+i, 1, match, 0);
+        if(ret != REG_NOMATCH && match[0].rm_so >= 0){
+            strncpy(url, text + i, match[0].rm_eo);
+            url[match[0].rm_eo] = '\0';
+            ret = twitter_shorten_tinyurl(twitter, url, shorten_url);
+            if(ret){
+                printf("shorten error: %d\n", ret);
+                return -1;
+            }
+            printf("url: %s -> %s\n", url, shorten_url);
+            shorten_len = strlen(shorten_url);
+            i+=match[0].rm_eo;
+            strncpy(shortentext + j, shorten_url, shorten_len);
+            j+=shorten_len;
+        }else{
+            shortentext[j] = text[i];
+            i++;
+            j++;
+        }
+    }
+    shortentext[j] = '\0';
+    return 0;
 }
 
 /*
