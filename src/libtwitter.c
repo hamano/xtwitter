@@ -1,6 +1,6 @@
 /*
  * Xtwitter - libtwitter.c
- * Copyright (C) 2008 Tsukasa Hamano <code@cuspy.org>
+ * Copyright (C) 2008-2012 Tsukasa Hamano <code@cuspy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@
 #include <Imlib2.h>
 #include <oauth.h>
 #include <regex.h>
+#include <json/json.h>
 #include "libtwitter.h"
 
 twitter_t* twitter_new()
@@ -263,6 +264,118 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     return 0;
 }
 
+static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
+                                     void *data)
+{
+    json_tokener *tokener;
+    twitter_t *twitter = data;
+    size_t realsize = size * nmemb;
+    json_object *obj_root = NULL;
+    json_object *obj_user = NULL;
+    json_object *obj_tmp = NULL;
+    twitter_status_t *status = NULL;
+    twitter_user_t *user = NULL;
+
+    if(realsize <= 2){
+        return realsize;
+    }
+    tokener = json_tokener_new();
+    obj_root = json_tokener_parse_ex(tokener, ptr, realsize);
+    json_tokener_free(tokener);
+    if (is_error(obj_root)){
+        fprintf(stderr, "parse error: ptr=%s\n", ptr);
+        json_object_put(obj_root);
+        return realsize;
+    }
+    obj_tmp = json_object_object_get(obj_root, "friends");
+    if(obj_tmp){
+        printf("watching %d friends.\n", json_object_array_length(obj_tmp));
+        json_object_put(obj_root);
+        return realsize;
+    }
+    obj_user = json_object_object_get(obj_root, "user");
+    if(!obj_user){
+        fprintf(stderr, "not found user object\n");
+        fprintf(stderr, "%s\n", json_object_to_json_string(obj_root));
+        json_object_put(obj_root);
+        return realsize;
+    }
+
+    status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
+    memset(status, 0, sizeof(twitter_status_t));
+    user = (twitter_user_t *)malloc(sizeof(twitter_user_t));
+    memset(user, 0, sizeof(twitter_user_t));
+    status->user = user;
+
+    obj_tmp = json_object_object_get(obj_root, "created_at");
+    status->created_at = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_root, "id_str");
+    status->id = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_root, "text");
+    status->text = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_root, "source");
+    status->source = json_object_get_string(obj_tmp);
+
+    obj_tmp = json_object_object_get(obj_user, "id");
+    user->id = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_user, "screen_name");
+    user->screen_name = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_user, "profile_image_url");
+    user->profile_image_url = json_object_get_string(obj_tmp);
+
+    if(twitter->debug > 1){
+        twitter_status_dump(status);
+    }else if(twitter->quiet == 0){
+        twitter_status_print(status);
+    }
+    twitter->popup(twitter, status);
+
+    json_object_put(obj_root);
+    free(status);
+    free(user);
+    return realsize;
+}
+
+int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
+{
+    CURL *curl;
+    CURLcode code;
+    long res;
+    curl = curl_easy_init();
+    if(!curl){
+        fprintf(stderr, "error: curl_easy_init()\n");
+        return -1;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, apiuri);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_stream_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)twitter);
+    // 2010-07-20 bug
+    //curl_easy_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, 1);
+
+    code = curl_easy_perform(curl);
+    if(code){
+        fprintf(stderr, "error: %s\n", curl_easy_strerror(code));
+        return -1;
+    }
+/*
+    if(twitter->debug >= 3){
+        fwrite(buf->data, 1, buf->len, stderr);
+        fprintf(stderr, "\n");
+    }
+*/
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
+    if(res != 200){
+        fprintf(stderr, "error respose code: %ld\n", res);
+        return res;
+    }
+
+    curl_easy_cleanup(curl);
+    return 0;
+}
+
 int twitter_update(twitter_t *twitter, const char *status)
 {
     CURL *curl;
@@ -278,7 +391,7 @@ int twitter_update(twitter_t *twitter, const char *status)
     buf = g_byte_array_new();
     curl = curl_easy_init();
     if(!curl) {
-        printf("error: curl_easy_init()\n");
+        fprintf(stderr, "error: curl_easy_init()\n");
         return -1;
     }
     snprintf(api_uri, PATH_MAX, "%s%s",
@@ -290,7 +403,6 @@ int twitter_update(twitter_t *twitter, const char *status)
         twitter->token_key, twitter->token_secret);
 
     if(twitter->debug >= 2){
-        //printf("api_uri: %s\n", api_uri);
         printf("req_uri: %s\n", req_uri);
     }
 
@@ -355,7 +467,6 @@ GList* twitter_home_timeline(twitter_t *twitter)
         twitter->token_key, twitter->token_secret);
 
     if(twitter->debug > 1){
-        printf("api_uri: %s\n", api_uri);
         printf("req_uri: %s\n", req_uri);
     }
 
@@ -423,6 +534,23 @@ GList* twitter_friends_timeline(twitter_t *twitter)
     }
     free(req_uri);
     return timeline;
+}
+
+void twitter_user_stream(twitter_t *twitter)
+{
+    char api_uri[PATH_MAX];
+
+    snprintf(api_uri, PATH_MAX, "%s", TWITTER_STREAM_URI);
+    char *req_uri = oauth_sign_url2(
+        api_uri, NULL, OA_HMAC, "GET",
+        twitter->consumer_key, twitter->consumer_secret,
+        twitter->token_key, twitter->token_secret);
+
+    if(twitter->debug >= 2){
+        printf("req_uri: %s\n", req_uri);
+    }
+
+    twitter_user_stream_read(twitter, req_uri);
 }
 
 GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
@@ -535,6 +663,21 @@ void twitter_status_dump(twitter_status_t *status){
            status->user->screen_name, status->text);
 }
 
+void twitter_status_free(twitter_status_t *status){
+    if(status->created_at) free((void*)(status->created_at));
+    if(status->id) free((void*)(status->id));
+    if(status->text) free((void*)(status->text));
+    if(status->source) free((void*)(status->source));
+    if(status->user){
+        if(status->user->id) free((void*)(status->user->id));
+        if(status->user->screen_name) free((void*)(status->user->screen_name));
+        if(status->user->profile_image_url)
+            free((void*)(status->user->profile_image_url));
+        if(status->user) free((void*)status->user);
+    }
+    free(status);
+}
+
 void twitter_statuses_free(GList *statuses){
     GList *l = statuses;
     twitter_status_t *status;
@@ -546,17 +689,7 @@ void twitter_statuses_free(GList *statuses){
         if(!status){
             continue;
         }
-        free((void*)(status->created_at));
-        free((void*)(status->id));
-        free((void*)(status->text));
-        free((void*)(status->source));
-        if(status->user){
-            free((void*)(status->user->id));
-            free((void*)(status->user->screen_name));
-            free((void*)(status->user->profile_image_url));
-            free((void*)(status->user));
-        }
-        free(status);
+        twitter_status_free(status);
     }while((l = g_list_next(l)));
     g_list_free(statuses);
 }

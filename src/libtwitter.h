@@ -1,6 +1,6 @@
 /*
  * Xtwitter - libtwitter.h
- * Copyright (C) 2008 Tsukasa Hamano <code@cuspy.org>
+ * Copyright (C) 2008-2012 Tsukasa Hamano <code@cuspy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,21 @@
 #define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
 #define TWITTER_API_SEARCH "/search.atom"
 #define TWITTER_API_ACCESS_TOKEN "/oauth/access_token"
+#define TWITTER_STREAM_URI "https://userstream.twitter.com/2/user.json"
+
+typedef struct{
+    const char *id;
+    const char *screen_name;
+    const char *profile_image_url;
+}twitter_user_t;
+
+typedef struct{
+    const char *created_at;
+    const char *id;
+    const char *text;
+    const char *source;
+    const twitter_user_t *user;
+}twitter_status_t;
 
 typedef struct{
     const char *base_uri;
@@ -47,21 +62,8 @@ typedef struct{
     int debug;
     int quiet;
     int error;
+    int (*popup)(void *, twitter_status_t *);
 }twitter_t;
-
-typedef struct{
-    const char *id;
-    const char *screen_name;
-    const char *profile_image_url;
-}twitter_user_t;
-
-typedef struct{
-    const char *created_at;
-    const char *id;
-    const char *text;
-    const char *source;
-    const twitter_user_t *user;
-}twitter_status_t;
 
 twitter_t *twitter_new();
 void twitter_free(twitter_t *twitter);
@@ -82,6 +84,8 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader);
 GList* twitter_search_timeline(twitter_t *twitter, const char *word);
 
 void twitter_statuses_free(GList *statuses);
+void twitter_status_free(twitter_status_t *status);
+
 void twitter_status_print(twitter_status_t *status);
 void twitter_status_print(twitter_status_t *status);
 void twitter_status_dump(twitter_status_t *status);

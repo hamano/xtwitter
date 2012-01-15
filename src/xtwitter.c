@@ -1,6 +1,6 @@
 /*
  * Xtwitter - xtwitter.c: twitter client for X
- * Copyright (C) 2008 Tsukasa Hamano <code@cuspy.org>
+ * Copyright (C) 2008-2012 Tsukasa Hamano <code@cuspy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,9 +31,7 @@
 #include <Imlib2.h>
 #include <regex.h>
 
-#ifdef ENABLE_LIBNOTIFY
 #include <libnotify/notify.h>
-#endif
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH  400
@@ -166,7 +164,6 @@ static void xmlescape(char *dest, const char *src, size_t n)
     }while(src[i++]);
 }
 
-#ifdef ENABLE_LIBNOTIFY
 int xtwitter_libnotify_init()
 {
     if(!notify_init(PACKAGE)){
@@ -175,14 +172,22 @@ int xtwitter_libnotify_init()
     return 0;
 }
 
-int xtwitter_libnotify_popup(twitter_t *twitter,
-                             twitter_status_t *status,
-                             NotifyUrgency urgency)
+int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
 {
+    twitter_t *twitter = data;
     NotifyNotification *notify;
     char image_name[PATH_MAX];
     char image_path[PATH_MAX];
     char text[2048];
+    int match;
+    NotifyUrgency urgency;
+
+    match = regexec(&id_regex, status->text, 0, NULL, 0);
+    if(match != REG_NOMATCH){
+        urgency = NOTIFY_URGENCY_CRITICAL;
+    }else{
+        urgency = NOTIFY_URGENCY_NORMAL;
+    }
 
     /* notice: destructive conversion  */
     xmlunescape((char*)status->text);
@@ -193,10 +198,9 @@ int xtwitter_libnotify_popup(twitter_t *twitter,
                                      text, image_path, NULL);
     notify_notification_set_urgency(notify, urgency);
     notify_notification_show(notify, NULL);
-    sleep(twitter->show_interval);
+
     return 0;
 }
-#endif
 
 int utf8pos(const char *str, int width){
     int i=0;
@@ -216,7 +220,6 @@ int utf8pos(const char *str, int width){
     }
     return i;
 }
-
 
 int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 {
@@ -300,9 +303,6 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 
 void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
     twitter_status_t *status;
-#ifdef ENABLE_LIBNOTIFY
-    int match;
-#endif
 
     statuses = g_list_last(statuses);
     if(!statuses){
@@ -317,17 +317,8 @@ void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
             twitter_status_print(status);
 		}
 
-#ifdef ENABLE_LIBNOTIFY
-        match = regexec(&id_regex, status->text, 0, NULL, 0);
-        if(match != REG_NOMATCH){
-            xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_CRITICAL);
-        }else{
-            xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_NORMAL);
-        }
-#else
-        xtwitter_x_popup(twitter, status);
-#endif
-
+        twitter->popup((struct twitter_t *)twitter, status);
+        sleep(twitter->show_interval);
     }while((statuses = g_list_previous(statuses)));
 }
 
@@ -347,7 +338,8 @@ void xtwitter_show_search(twitter_t *twitter, GList *statuses){
 		}
 
 #ifdef ENABLE_LIBNOTIFY
-        xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_LOW);
+        //xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_LOW);
+        xtwitter_libnotify_popup(twitter, status);
 #else
         xtwitter_x_popup(twitter, status);
 #endif
@@ -459,9 +451,9 @@ static void daemonize(void)
         exit(EXIT_FAILURE);
     }
 
-    freopen( "/dev/null", "r", stdin);
-    freopen( "/dev/null", "w", stdout);
-    freopen( "/dev/null", "w", stderr);
+    freopen("/dev/null", "r", stdin);
+    freopen("/dev/null", "w", stdout);
+    freopen("/dev/null", "w", stderr);
 }
 
 int main(int argc, char *argv[]){
@@ -469,6 +461,7 @@ int main(int argc, char *argv[]){
     int opt;
     int opt_debug = 0;
     int opt_search = 0;
+    int opt_obsolete = 0;
     int opt_daemonize = 0;
     char opt_search_word[1024];
     char *opt_update = NULL;
@@ -477,7 +470,7 @@ int main(int argc, char *argv[]){
 
     twitter_t *twitter = NULL;
 
-    while((opt = getopt(argc, argv, "ds:l:u:c:vD")) != -1){
+    while((opt = getopt(argc, argv, "ds:l:u:c:vDo")) != -1){
         switch(opt){
         case 'd':
 			opt_debug++;
@@ -492,6 +485,9 @@ int main(int argc, char *argv[]){
 			break;
         case 'l':
             opt_lang = optarg;
+            break;
+        case 'o':
+            opt_obsolete = 1;
             break;
         case 'u':
             opt_update = optarg;
@@ -516,6 +512,7 @@ int main(int argc, char *argv[]){
 
     twitter = twitter_new();
     twitter_config(twitter);
+    twitter->popup = xtwitter_libnotify_popup;
 
     if(opt_debug){
         twitter->debug = opt_debug;
@@ -570,11 +567,14 @@ int main(int argc, char *argv[]){
         daemonize();
     }
 
-	if(opt_search){
-		xtwitter_search_loop(twitter, opt_search_word);
-	}else{
-		xtwitter_loop(twitter);
-	}
+    if(opt_obsolete){
+        xtwitter_loop(twitter);
+    }else if(opt_search){
+        xtwitter_search_loop(twitter, opt_search_word);
+    }else{
+        twitter_user_stream(twitter);
+    }
+
     twitter_free(twitter);
     return EXIT_SUCCESS;
 }
