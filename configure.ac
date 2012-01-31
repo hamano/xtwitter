@@ -39,7 +39,7 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([stdio.h stdlib.h string.h unistd.h])
 AC_CHECK_HEADERS(X11/Xlib.h,,
     AC_MSG_ERROR([Please install libx11 development package]))
-AC_CHECK_HEADERS(Imlib.h,,
+AC_CHECK_HEADERS(Imlib2.h,,
     AC_MSG_ERROR([Please install libim development package]))
 AC_CHECK_HEADERS(json/json.h,,
     AC_MSG_ERROR([Please install libjson development package]))

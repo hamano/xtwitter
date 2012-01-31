@@ -654,8 +654,30 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader){
     return user;
 }
 
+/*
+  XML unescape only &lt; and &gt;
+  notice: destructive conversion.
+ */
+static void twitter_xmlunescape(char *dst, const char *src, size_t n) 
+{
+    strncpy(dst, src, n);
+    char *p;
+    while((p = strstr(dst, "&lt;")) != NULL){
+        *p++ = '<';
+        while((*p = *(p + 3))) p++;
+        *p = '\0';
+    }
+    while((p = strstr(dst, "&gt;")) != NULL){
+        *p++ = '>';
+        while((*p = *(p + 3))) p++;
+        *p = '\0';
+    }
+}
+
 void twitter_status_print(twitter_status_t *status){
-    printf("@%s: %s\n", status->user->screen_name, status->text);
+    char text[2048];
+    twitter_xmlunescape(text, status->text, 2048);
+    printf("@%s: %s\n", status->user->screen_name, text);
 }
 
 void twitter_status_dump(twitter_status_t *status){

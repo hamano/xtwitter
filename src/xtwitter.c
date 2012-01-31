@@ -112,25 +112,6 @@ int xtwitter_x_init()
 }
 
 /*
-  XML unescape only &lt; and &gt;
-  notice: destructive conversion.
- */
-static void xmlunescape(const char *str)
-{
-    char *p;
-    while((p = strstr(str, "&lt;")) != NULL){
-        *p++ = '<';
-        while((*p = *(p + 3))) p++;
-        *p = '\0';
-    }
-    while((p = strstr(str, "&gt;")) != NULL){
-        *p++ = '>';
-        while((*p = *(p + 3))) p++;
-        *p = '\0';
-    }
-}
-
-/*
   XML escape only &, > and <;
  */
 static void xmlescape(char *dest, const char *src, size_t n)
@@ -178,7 +159,7 @@ int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
     NotifyNotification *notify;
     char image_name[PATH_MAX];
     char image_path[PATH_MAX];
-    char text[2048];
+    //char text[2048];
     int match;
     NotifyUrgency urgency;
 
@@ -189,13 +170,18 @@ int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
         urgency = NOTIFY_URGENCY_NORMAL;
     }
 
-    /* notice: destructive conversion  */
-    xmlunescape((char*)status->text);
-    xmlescape(text, status->text, 2048);
+    //snprintf(text, 2048, "%s\n", status->text);
     twitter_image_name(status, image_name);
 	snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
+
     notify = notify_notification_new(status->user->screen_name,
-                                     text, image_path, NULL);
+                                     status->text, image_path
+#if NOTIFY_CHECK_VERSION (0, 7, 0)
+        );
+#else
+    ,NULL);
+#endif
+
     notify_notification_set_urgency(notify, urgency);
     notify_notification_show(notify, NULL);
 
@@ -233,7 +219,7 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     int i;
 
     /* notice: destructive conversion  */
-    xmlunescape((char*)status->text);
+    //xmlunescape((char*)status->text);
 
     while(*text){
         pos=utf8pos(text, 48);
