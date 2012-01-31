@@ -171,6 +171,7 @@ int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
     }
 
     //snprintf(text, 2048, "%s\n", status->text);
+    twitter_stat_image(twitter, status);
     twitter_image_name(status, image_name);
 	snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
 
@@ -343,7 +344,7 @@ void xtwitter_loop(twitter_t *twitter)
             printf("timeline num: %d\n", g_list_length(timeline));
 		}
 
-        twitter_fetch_images(twitter, timeline);
+        twitter_stat_images(twitter, timeline);
         xtwitter_show_timeline(twitter, timeline);
         twitter_statuses_free(timeline);
         timeline = NULL;

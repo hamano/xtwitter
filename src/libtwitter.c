@@ -37,6 +37,7 @@ twitter_t* twitter_new()
 {
     twitter_t *twitter;
     const char *home;
+    int ret;
 
     home = getenv("HOME");
     if(!home)
@@ -62,6 +63,13 @@ twitter_t* twitter_new()
     snprintf(twitter->images_dir, PATH_MAX, "%s/.xtwitter/images", home);
 
     twitter->shortener = NULL;
+
+    ret = mkdir(twitter->images_dir, 0755);
+    if(ret && errno != EEXIST){
+        fprintf(stderr, "can't create image directory.\n");
+        return NULL;
+    }
+
     return twitter;
 }
 
@@ -577,11 +585,12 @@ GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
 }
 
 twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader){
-    int ret;
     xmlElementType type;
     xmlChar *name;
     int depth;
     twitter_status_t *status;
+    int ret;
+
     status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
     memset(status, 0, sizeof(twitter_status_t));
 
@@ -734,34 +743,35 @@ int twitter_image_name(twitter_status_t *status, char *name){
     return 0;
 }
 
-int twitter_fetch_images(twitter_t *twitter, GList *statuses){
+int twitter_stat_image(twitter_t *twitter, twitter_status_t *status){
     int ret;
-    twitter_status_t *status;
-    const char *url;
     char name[PATH_MAX];
     char path[PATH_MAX];
+    const char *url;
     struct stat st;
+
+    twitter_image_name(status, name);
+    url = status->user->profile_image_url;
+    snprintf(path, PATH_MAX, "%s/%s", twitter->images_dir, name);
+    ret = stat(path, &st);
+    if(ret){
+        twitter_fetch_image(twitter, url, path);
+        twitter_resize_image(twitter, path);
+    }
+    return 0;
+}
+
+int twitter_stat_images(twitter_t *twitter, GList *statuses){
+    twitter_status_t *status;
 
     statuses = g_list_last(statuses);
     if(!statuses){
         return 0;
     }
-    ret = mkdir(twitter->images_dir, 0755);
-    if(ret && errno != EEXIST){
-        fprintf(stderr, "can't create directory.\n");
-        return -1;
-    }
 
     do{
         status = statuses->data;
-        twitter_image_name(status, name);
-        url = status->user->profile_image_url;
-        snprintf(path, PATH_MAX, "%s/%s", twitter->images_dir, name);
-        ret = stat(path, &st);
-        if(ret){
-            twitter_fetch_image(twitter, url, path);
-            twitter_resize_image(twitter, path);
-        }
+        twitter_stat_image(twitter, status);
     }while((statuses = g_list_previous(statuses)));
     return 0;
 }
@@ -782,6 +792,7 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path){
     int i;
     char *esc;
     char escaped_url[PATH_MAX];
+
 
     if(twitter->debug >= 2){
         printf("fetch image: %s\n", url);
