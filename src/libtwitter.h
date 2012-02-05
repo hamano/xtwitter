@@ -86,6 +86,9 @@ GList* twitter_search_timeline(twitter_t *twitter, const char *word);
 void twitter_statuses_free(GList *statuses);
 void twitter_status_free(twitter_status_t *status);
 
+void twitter_unescape(char *dst, const char *src, size_t n);
+void twitter_xmlescape(char *dst, const char *src, size_t n);
+
 void twitter_status_print(twitter_status_t *status);
 void twitter_status_print(twitter_status_t *status);
 void twitter_status_dump(twitter_status_t *status);

@@ -111,40 +111,6 @@ int xtwitter_x_init()
     return 0;
 }
 
-/*
-  XML escape only &, > and <;
- */
-static void xmlescape(char *dest, const char *src, size_t n)
-{
-    int i = 0;
-    int j = 0;
-    do{
-        if(j + 6 > n){
-            dest[j] = '\0';
-            break;
-        }else if(src[i] == '&'){
-            dest[j++] = '&';
-            dest[j++] = 'a';
-            dest[j++] = 'm';
-            dest[j++] = 'p';
-            dest[j++] = ';';
-        }else if(src[i] == '>'){
-            dest[j++] = '&';
-            dest[j++] = 'g';
-            dest[j++] = 't';
-            dest[j++] = ';';
-        }else if(src[i] == '<'){
-            dest[j++] = '&';
-            dest[j++] = 'l';
-            dest[j++] = 't';
-            dest[j++] = ';';
-        }else{
-            dest[j] = src[i];
-            j++;
-        }
-    }while(src[i++]);
-}
-
 int xtwitter_libnotify_init()
 {
     if(!notify_init(PACKAGE)){
@@ -162,6 +128,9 @@ int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
     //char text[2048];
     int match;
     NotifyUrgency urgency;
+    char text[2048];
+    char text2[2048];
+    char *body;
 
     match = regexec(&id_regex, status->text, 0, NULL, 0);
     if(match != REG_NOMATCH){
@@ -170,13 +139,14 @@ int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
         urgency = NOTIFY_URGENCY_NORMAL;
     }
 
-    //snprintf(text, 2048, "%s\n", status->text);
+    twitter_unescape(text, status->text, 2048);
+    twitter_xmlescape(text2, text, 2048);
     twitter_stat_image(twitter, status);
     twitter_image_name(status, image_name);
 	snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
 
     notify = notify_notification_new(status->user->screen_name,
-                                     status->text, image_path
+                                     text2, image_path
 #if NOTIFY_CHECK_VERSION (0, 7, 0)
         );
 #else
@@ -185,7 +155,6 @@ int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
 
     notify_notification_set_urgency(notify, urgency);
     notify_notification_show(notify, NULL);
-
     return 0;
 }
 

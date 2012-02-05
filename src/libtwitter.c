@@ -301,6 +301,14 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
         json_object_put(obj_root);
         return realsize;
     }
+
+    obj_tmp = json_object_object_get(obj_root, "event");
+    if(obj_tmp){
+        printf("event: %s\n", json_object_get_string(obj_tmp));
+        json_object_put(obj_root);
+        return realsize;
+    }
+
     obj_user = json_object_object_get(obj_root, "user");
     if(!obj_user){
         fprintf(stderr, "not found user object\n");
@@ -664,10 +672,9 @@ twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader){
 }
 
 /*
-  XML unescape only &lt; and &gt;
-  notice: destructive conversion.
- */
-static void twitter_xmlunescape(char *dst, const char *src, size_t n) 
+  twitter unescape only &lt; and &gt;
+  */
+void twitter_unescape(char *dst, const char *src, size_t n)
 {
     strncpy(dst, src, n);
     char *p;
@@ -683,9 +690,43 @@ static void twitter_xmlunescape(char *dst, const char *src, size_t n)
     }
 }
 
+/*
+  XML escape only &, > and <;
+ */
+void twitter_xmlescape(char *dest, const char *src, size_t n)
+{
+    int i = 0;
+    int j = 0;
+    do{
+        if(j + 6 > n){
+            dest[j] = '\0';
+            break;
+        }else if(src[i] == '&'){
+            dest[j++] = '&';
+            dest[j++] = 'a';
+            dest[j++] = 'm';
+            dest[j++] = 'p';
+            dest[j++] = ';';
+        }else if(src[i] == '>'){
+            dest[j++] = '&';
+            dest[j++] = 'g';
+            dest[j++] = 't';
+            dest[j++] = ';';
+        }else if(src[i] == '<'){
+            dest[j++] = '&';
+            dest[j++] = 'l';
+            dest[j++] = 't';
+            dest[j++] = ';';
+        }else{
+            dest[j] = src[i];
+            j++;
+        }
+    }while(src[i++]);
+}
+
 void twitter_status_print(twitter_status_t *status){
     char text[2048];
-    twitter_xmlunescape(text, status->text, 2048);
+    twitter_unescape(text, status->text, 2048);
     printf("@%s: %s\n", status->user->screen_name, text);
 }
 
@@ -792,7 +833,6 @@ int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path){
     int i;
     char *esc;
     char escaped_url[PATH_MAX];
-
 
     if(twitter->debug >= 2){
         printf("fetch image: %s\n", url);
