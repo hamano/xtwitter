@@ -75,12 +75,6 @@ int twitter_update(twitter_t *twitter, const char *status);
 int twitter_count(const char *text);
 int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext);
 
-GList* twitter_friends_timeline(twitter_t *twitter);
-GList* twitter_home_timeline(twitter_t *twitter);
-GList* twitter_parse_statuses_node(xmlTextReaderPtr reader);
-twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader);
-twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader);
-
 GList* twitter_search_timeline(twitter_t *twitter, const char *word);
 
 void twitter_statuses_free(GList *statuses);

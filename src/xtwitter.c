@@ -303,12 +303,13 @@ void xtwitter_show_search(twitter_t *twitter, GList *statuses){
     }while((statuses = g_list_previous(statuses)));
 }
 
+// obsolute
 void xtwitter_loop(twitter_t *twitter)
 {
     GList* timeline = NULL;
 
     while(1){
-        timeline = twitter_friends_timeline(twitter);
+        //timeline = twitter_friends_timeline(twitter);
         if(twitter->debug >= 2){
             printf("timeline num: %d\n", g_list_length(timeline));
 		}
@@ -321,12 +322,13 @@ void xtwitter_loop(twitter_t *twitter)
     }
 }
 
+// obsolute
 void xtwitter_search_loop(twitter_t *twitter, const char *word)
 {
     GList* timeline = NULL;
 
     while(1){
-        timeline = twitter_search_timeline(twitter, word);
+        //timeline = twitter_search_timeline(twitter, word);
         if(twitter->debug >= 2){
             printf("timeline num: %d\n", g_list_length(timeline));
 		}

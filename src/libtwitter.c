@@ -26,7 +26,6 @@
 #include <errno.h>
 #include <glib.h>
 #include <curl/curl.h>
-#include <libxml/xmlreader.h>
 #include <Imlib2.h>
 #include <oauth.h>
 #include <regex.h>
@@ -281,8 +280,6 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     json_object *obj_root = NULL;
     json_object *obj_user = NULL;
     json_object *obj_tmp = NULL;
-    twitter_status_t *status = NULL;
-    twitter_user_t *user = NULL;
 
     if(realsize <= 2){
         return realsize;
@@ -304,18 +301,36 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
 
     obj_tmp = json_object_object_get(obj_root, "event");
     if(obj_tmp){
-        printf("event: %s\n", json_object_get_string(obj_tmp));
+        printf("EVENT: %s\n", json_object_to_json_string(obj_root));
         json_object_put(obj_root);
         return realsize;
     }
 
-    obj_user = json_object_object_get(obj_root, "user");
-    if(!obj_user){
-        fprintf(stderr, "not found user object\n");
-        fprintf(stderr, "%s\n", json_object_to_json_string(obj_root));
+    obj_tmp = json_object_object_get(obj_root, "delete");
+    if(obj_tmp){
+        printf("DELETE: %s\n", json_object_to_json_string(obj_root));
         json_object_put(obj_root);
         return realsize;
     }
+
+    obj_tmp = json_object_object_get(obj_root, "user");
+    if(obj_tmp){
+        twitter_popup_user(twitter, obj_root, obj_tmp);
+        json_object_put(obj_root);
+        return realsize;
+    }
+
+    fprintf(stderr, "unknown object\n");
+    fprintf(stderr, "%s\n", json_object_to_json_string(obj_root));
+    json_object_put(obj_root);
+    return realsize;
+}
+
+void twitter_popup_user(twitter_t *twitter,
+                        json_object *obj_root, json_object *obj_user){
+    twitter_status_t *status = NULL;
+    twitter_user_t *user = NULL;
+    json_object *obj_tmp = NULL;
 
     status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
     memset(status, 0, sizeof(twitter_status_t));
@@ -345,11 +360,8 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
         twitter_status_print(status);
     }
     twitter->popup(twitter, status);
-
-    json_object_put(obj_root);
     free(status);
     free(user);
-    return realsize;
 }
 
 int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
@@ -368,6 +380,7 @@ int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_stream_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)twitter);
+    //curl_easy_setopt(curl, CURLE_OPERATION_TIMEDOUT, 10);
     // 2010-07-20 bug
     //curl_easy_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, 1);
 
@@ -465,93 +478,6 @@ int twitter_update(twitter_t *twitter, const char *status)
     return 0;
 }
 
-GList* twitter_home_timeline(twitter_t *twitter)
-{
-    int ret;
-    GList *timeline = NULL;
-    GByteArray *buf;
-    xmlTextReaderPtr reader;
-    char api_uri[PATH_MAX];
-    twitter_status_t *status;
-
-    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%lld",
-             twitter->base_uri, TWITTER_API_PATH_HOME_TIMELINE,
-             twitter->last_friends_timeline);
-    char *req_uri = oauth_sign_url2(
-        api_uri, NULL, OA_HMAC, "GET",
-        twitter->consumer_key, twitter->consumer_secret,
-        twitter->token_key, twitter->token_secret);
-
-    if(twitter->debug > 1){
-        printf("req_uri: %s\n", req_uri);
-    }
-
-    buf = g_byte_array_new();
-    ret = twitter_fetch(twitter, req_uri, buf);
-    if(ret){
-        printf("ERROR: twitter_fetch()\n");
-        free(req_uri);
-        return NULL;
-    }
-    reader = xmlReaderForMemory((const char *)buf->data, buf->len,
-                                NULL, NULL, 0);
-    timeline = twitter_parse_statuses_node(reader);
-    xmlFreeTextReader(reader);
-    g_byte_array_free (buf, TRUE);
-//    xmlMemoryDump();
-
-    if(timeline){
-        status = timeline->data;
-        twitter->last_friends_timeline = atoll(status->id);
-    }
-    free(req_uri);
-    return timeline;
-}
-
-GList* twitter_friends_timeline(twitter_t *twitter)
-{
-    int ret;
-    GList *timeline = NULL;
-    GByteArray *buf;
-    xmlTextReaderPtr reader;
-    char api_uri[PATH_MAX];
-    twitter_status_t *status;
-
-    snprintf(api_uri, PATH_MAX, "%s%s?since_id=%lld",
-             twitter->base_uri, TWITTER_API_PATH_FRIENDS_TIMELINE,
-             twitter->last_friends_timeline);
-    char *req_uri = oauth_sign_url2(
-        api_uri, NULL, OA_HMAC, "GET",
-        twitter->consumer_key, twitter->consumer_secret,
-        twitter->token_key, twitter->token_secret);
-
-    if(twitter->debug >= 2){
-        //printf("api_uri: %s\n", api_uri);
-        printf("req_uri: %s\n", req_uri);
-    }
-
-    buf = g_byte_array_new();
-    ret = twitter_fetch(twitter, req_uri, buf);
-    if(ret){
-        printf("ERROR: twitter_fetch()\n");
-        free(req_uri);
-        return NULL;
-    }
-    reader = xmlReaderForMemory((const char *)buf->data, buf->len,
-                                NULL, NULL, 0);
-    timeline = twitter_parse_statuses_node(reader);
-    xmlFreeTextReader(reader);
-    g_byte_array_free (buf, TRUE);
-//    xmlMemoryDump();
-
-    if(timeline){
-        status = timeline->data;
-        twitter->last_friends_timeline = atoll(status->id);
-    }
-    free(req_uri);
-    return timeline;
-}
-
 void twitter_user_stream(twitter_t *twitter)
 {
     char api_uri[PATH_MAX];
@@ -569,111 +495,9 @@ void twitter_user_stream(twitter_t *twitter)
     twitter_user_stream_read(twitter, req_uri);
 }
 
-GList* twitter_parse_statuses_node(xmlTextReaderPtr reader)
-{
-    xmlElementType type;
-    xmlChar *name;
-    GList* statuses = NULL;
-    twitter_status_t *status;
-
-    while(xmlTextReaderRead(reader) == 1){
-        type = xmlTextReaderNodeType(reader);
-        if(type == XML_READER_TYPE_ELEMENT) {
-            name = xmlTextReaderName(reader);
-            if(!xmlStrcmp(name, (xmlChar *)"status")) {
-                status = twitter_parse_status_node(reader);
-                if(status){
-                    statuses = g_list_append(statuses, status);
-                }
-            }
-            xmlFree(name);
-        }
-    }
-    return statuses;
-}
-
-twitter_status_t* twitter_parse_status_node(xmlTextReaderPtr reader){
-    xmlElementType type;
-    xmlChar *name;
-    int depth;
-    twitter_status_t *status;
-    int ret;
-
-    status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
-    memset(status, 0, sizeof(twitter_status_t));
-
-    while(xmlTextReaderRead(reader) == 1){
-        type = xmlTextReaderNodeType(reader);
-        depth = xmlTextReaderDepth(reader);
-        if(depth > 2){
-            continue;
-        }
-        if (type == XML_READER_TYPE_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if (!xmlStrcmp(name, (xmlChar *)"created_at")){
-                ret = xmlTextReaderRead(reader);
-                status->created_at = (const char *)xmlTextReaderValue(reader);
-            }else if (!xmlStrcmp(name, (xmlChar *)"id")){
-                ret = xmlTextReaderRead(reader);
-                status->id = (const char *)xmlTextReaderValue(reader);
-            }else if (!xmlStrcmp(name, (xmlChar *)"text")){
-                ret = xmlTextReaderRead(reader);
-                status->text = (const char *)xmlTextReaderValue(reader);
-            }else if (!xmlStrcmp(name, (xmlChar *)"user")){
-                status->user = twitter_parse_user_node(reader);
-            }
-            xmlFree(name);
-        } else if (type == XML_READER_TYPE_END_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if (!xmlStrcmp(name, (xmlChar *)"status")){
-                xmlFree(name);
-                break;
-            }
-            xmlFree(name);
-        }
-    }
-    return status;
-}
-
-twitter_user_t* twitter_parse_user_node(xmlTextReaderPtr reader){
-    int ret;
-    xmlElementType type;
-    xmlChar *name;
-    twitter_user_t *user;
-
-    user = (twitter_user_t *)malloc(sizeof(twitter_user_t));
-    memset(user, 0, sizeof(twitter_user_t));
-    while(xmlTextReaderRead(reader) == 1){
-        type = xmlTextReaderNodeType(reader);
-        if (type == XML_READER_TYPE_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if(!xmlStrcmp(name, (xmlChar *)"id")){
-                ret = xmlTextReaderRead(reader);
-                user->id = (const char *)xmlTextReaderValue(reader);
-            }else if(!xmlStrcmp(name, (xmlChar *)"screen_name")){
-                ret = xmlTextReaderRead(reader);
-                user->screen_name = (const char *)xmlTextReaderValue(reader);
-            }else if(!xmlStrcmp(name, (xmlChar *)"profile_image_url")){
-                ret = xmlTextReaderRead(reader);
-                user->profile_image_url =
-                    (const char *)xmlTextReaderValue(reader);
-            }
-            xmlFree(name);
-        }else if(type == XML_READER_TYPE_END_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if(!xmlStrcmp(name, (xmlChar *)"user")){
-                xmlFree(name);
-                break;
-            }
-            xmlFree(name);
-        }
-    }
-    return user;
-}
-
 /*
-  twitter unescape only &lt; and &gt;
-  */
+ * twitter unescape only &lt; and &gt;
+ */
 void twitter_unescape(char *dst, const char *src, size_t n)
 {
     strncpy(dst, src, n);
@@ -910,164 +734,6 @@ int twitter_resize_image(twitter_t *twitter, const char* path)
     }
     imlib_free_image();
     return 0;
-}
-
-twitter_user_t* twitter_parse_author_node(xmlTextReaderPtr reader){
-    int ret;
-    xmlElementType type;
-    xmlChar *name;
-    twitter_user_t *user;
-    char *name_tmp;
-
-    user = (twitter_user_t *)malloc(sizeof(twitter_user_t));
-    memset(user, 0, sizeof(twitter_user_t));
-    do{
-        ret = xmlTextReaderRead(reader);
-        type = xmlTextReaderNodeType(reader);
-        if (type == XML_READER_TYPE_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if(!xmlStrcmp(name, (xmlChar *)"name")){
-                ret = xmlTextReaderRead(reader);
-                user->id = strdup("");
-                user->screen_name = (const char *)xmlTextReaderValue(reader);
-                name_tmp = strchr(user->screen_name, ' ');
-                if(*name_tmp){
-                    *name_tmp = '\0';
-                }
-                user->profile_image_url = strdup("");
-            }
-            xmlFree(name);
-        }else if(type == XML_READER_TYPE_END_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if(!xmlStrcmp(name, (xmlChar *)"author")){
-                xmlFree(name);
-                break;
-            }
-            xmlFree(name);
-        }
-    }while(ret == 1);
-    return user;
-}
-
-twitter_status_t* twitter_parse_entry_node(xmlTextReaderPtr reader){
-    int ret;
-    xmlElementType type;
-    xmlChar *name;
-    twitter_status_t *status;
-    status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
-    memset(status, 0, sizeof(twitter_status_t));
-
-    do{
-        ret = xmlTextReaderRead(reader);
-        type = xmlTextReaderNodeType(reader);
-        if (type == XML_READER_TYPE_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if (!xmlStrcmp(name, (xmlChar *)"created_at")){
-                ret = xmlTextReaderRead(reader);
-                status->created_at = (const char *)xmlTextReaderValue(reader);
-            }else if (!xmlStrcmp(name, (xmlChar *)"id")){
-                ret = xmlTextReaderRead(reader);
-                status->id = (const char *)xmlTextReaderValue(reader);
-            }else if (!xmlStrcmp(name, (xmlChar *)"title")){
-                ret = xmlTextReaderRead(reader);
-                status->text = (const char *)xmlTextReaderValue(reader);
-            }else if (!xmlStrcmp(name, (xmlChar *)"author")){
-                status->user = twitter_parse_author_node(reader);
-            }
-            xmlFree(name);
-        } else if (type == XML_READER_TYPE_END_ELEMENT){
-            name = xmlTextReaderName(reader);
-            if (!xmlStrcmp(name, (xmlChar *)"entry")){
-                xmlFree(name);
-                break;
-            }
-            xmlFree(name);
-        }
-    }while(ret == 1);
-    return status;
-}
-
-GList* twitter_parse_atom(xmlTextReaderPtr reader)
-{
-    int ret;
-    xmlElementType type;
-    xmlChar *name;
-    GList* statuses = NULL;
-    twitter_status_t *status;
-
-    do{
-        ret = xmlTextReaderRead(reader);
-        type = xmlTextReaderNodeType(reader);
-        if(type == XML_READER_TYPE_ELEMENT) {
-            name = xmlTextReaderName(reader);
-            if(!xmlStrcmp(name, (xmlChar *)"entry")) {
-                status = twitter_parse_entry_node(reader);
-                if(status){
-                    statuses = g_list_append(statuses, status);
-                }
-            }
-            xmlFree(name);
-        }
-    }while(ret == 1);
-    return statuses;
-}
-
-GList* twitter_search_timeline(twitter_t *twitter, const char *word)
-{
-    int ret;
-    GList *timeline = NULL;
-    GByteArray *buf;
-    xmlTextReaderPtr reader;
-    char api_uri[PATH_MAX];
-    char api_param[PATH_MAX];
-    twitter_status_t *status;
-    char *id;
-
-    if(twitter->lang){
-        snprintf(api_param, PATH_MAX, "since_id=%lld&lang=%s&q=%s",
-                 twitter->last_friends_timeline,
-                 twitter->lang,
-                 word);
-    }else{
-        snprintf(api_param, PATH_MAX, "since_id=%lld&q=%s",
-                 twitter->last_friends_timeline,
-                 word);
-    }
-    snprintf(api_uri, PATH_MAX, "%s?%s", TWITTER_SEARCH_URI, api_param);
-
-    if(twitter->debug > 1){
-        printf("search word: %s\n", word);
-        printf("api_uri: %s\n", api_uri);
-    }
-    buf = g_byte_array_new();
-
-    ret = twitter_fetch(twitter, api_uri, buf);
-    if(ret){
-        printf("ERROR: twitter_fetch()\n");
-        return NULL;
-    }
-    if(twitter->debug >= 3){
-        printf("%s\n", buf->data);
-    }
-    reader = xmlReaderForMemory((const char *)buf->data, buf->len,
-                                NULL, NULL, 0);
-    timeline = twitter_parse_atom(reader);
-    xmlFreeTextReader(reader);
-    g_byte_array_free (buf, TRUE);
-    xmlMemoryDump();
-
-    if(timeline){
-        status = timeline->data;
-        id = strchr(status->id, ':');
-        if(id){
-            id = strchr(++id, ':');
-            id++;
-            twitter->last_friends_timeline = atoll(id);
-        }else{
-            twitter->last_friends_timeline = 0;
-        }
-    }
-    return timeline;
 }
 
 int twitter_count(const char *text){
