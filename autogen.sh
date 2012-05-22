@@ -34,7 +34,7 @@ test -d debian && {
 	# refresh list of executable scripts, to avoid possible breakage if
 	# upstream tarball does not include the file or if it is mispackaged
 	# for whatever reason.
-	[ "$1" == "updateexec" ] && {
+	[ "$1" = "updateexec" ] && {
 		echo Generating list of executable files...
 		rm -f debian/executable.files
 		find -type f -perm +111 ! -name '.*' -fprint debian/executable.files
