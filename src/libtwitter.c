@@ -271,6 +271,58 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     return 0;
 }
 
+static void twitter_popup_user(twitter_t *twitter,
+                               json_object *obj_root,
+                               json_object *obj_user
+    ){
+    twitter_status_t status = {0};
+    twitter_user_t user = {0};
+    twitter_status_t rt_status = {0};
+    twitter_user_t rt_user = {0};
+    json_object *obj_tmp = NULL;
+    json_object *obj_rt = NULL;
+    json_object *obj_rt_user = NULL;
+
+    obj_tmp = json_object_object_get(obj_root, "created_at");
+    status.created_at = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_root, "id_str");
+    status.id = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_root, "source");
+    status.source = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_root, "text");
+    status.text = json_object_get_string(obj_tmp);
+
+    obj_tmp = json_object_object_get(obj_user, "id");
+    user.id = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_user, "screen_name");
+    user.screen_name = json_object_get_string(obj_tmp);
+    obj_tmp = json_object_object_get(obj_user, "profile_image_url");
+    user.profile_image_url = json_object_get_string(obj_tmp);
+    status.user = &user;
+
+    obj_rt = json_object_object_get(obj_root, "retweeted_status");
+    if(obj_rt){
+        memset(&rt_status, 0, sizeof(twitter_status_t));
+        obj_tmp = json_object_object_get(obj_rt, "text");
+        rt_status.text = json_object_get_string(obj_tmp);
+
+        obj_rt_user = json_object_object_get(obj_rt, "user");
+        obj_tmp = json_object_object_get(obj_rt_user, "screen_name");
+        rt_user.screen_name = json_object_get_string(obj_tmp);
+        rt_status.user = &rt_user;
+        status.rt = &rt_status;
+    }else{
+        status.rt = NULL;
+    }
+
+    if(twitter->debug > 1){
+        twitter_status_dump(&status);
+    }else if(twitter->quiet == 0){
+        twitter_status_print(&status);
+    }
+    twitter->popup(twitter, &status);
+}
+
 static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
                                      void *data)
 {
@@ -278,7 +330,6 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     twitter_t *twitter = data;
     size_t realsize = size * nmemb;
     json_object *obj_root = NULL;
-    json_object *obj_user = NULL;
     json_object *obj_tmp = NULL;
 
     if(realsize <= 2){
@@ -288,7 +339,7 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     obj_root = json_tokener_parse_ex(tokener, ptr, realsize);
     json_tokener_free(tokener);
     if (is_error(obj_root)){
-        fprintf(stderr, "parse error: ptr=%s\n", ptr);
+        fprintf(stderr, "parse error: ptr=%s\n", (char *)ptr);
         json_object_put(obj_root);
         return realsize;
     }
@@ -315,6 +366,7 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
 
     obj_tmp = json_object_object_get(obj_root, "user");
     if(obj_tmp){
+        //printf("USER: %s\n", json_object_to_json_string(obj_root));
         twitter_popup_user(twitter, obj_root, obj_tmp);
         json_object_put(obj_root);
         return realsize;
@@ -324,44 +376,6 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     fprintf(stderr, "%s\n", json_object_to_json_string(obj_root));
     json_object_put(obj_root);
     return realsize;
-}
-
-void twitter_popup_user(twitter_t *twitter,
-                        json_object *obj_root, json_object *obj_user){
-    twitter_status_t *status = NULL;
-    twitter_user_t *user = NULL;
-    json_object *obj_tmp = NULL;
-
-    status = (twitter_status_t *)malloc(sizeof(twitter_status_t));
-    memset(status, 0, sizeof(twitter_status_t));
-    user = (twitter_user_t *)malloc(sizeof(twitter_user_t));
-    memset(user, 0, sizeof(twitter_user_t));
-    status->user = user;
-
-    obj_tmp = json_object_object_get(obj_root, "created_at");
-    status->created_at = json_object_get_string(obj_tmp);
-    obj_tmp = json_object_object_get(obj_root, "id_str");
-    status->id = json_object_get_string(obj_tmp);
-    obj_tmp = json_object_object_get(obj_root, "text");
-    status->text = json_object_get_string(obj_tmp);
-    obj_tmp = json_object_object_get(obj_root, "source");
-    status->source = json_object_get_string(obj_tmp);
-
-    obj_tmp = json_object_object_get(obj_user, "id");
-    user->id = json_object_get_string(obj_tmp);
-    obj_tmp = json_object_object_get(obj_user, "screen_name");
-    user->screen_name = json_object_get_string(obj_tmp);
-    obj_tmp = json_object_object_get(obj_user, "profile_image_url");
-    user->profile_image_url = json_object_get_string(obj_tmp);
-
-    if(twitter->debug > 1){
-        twitter_status_dump(status);
-    }else if(twitter->quiet == 0){
-        twitter_status_print(status);
-    }
-    twitter->popup(twitter, status);
-    free(status);
-    free(user);
 }
 
 int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
@@ -550,8 +564,16 @@ void twitter_xmlescape(char *dest, const char *src, size_t n)
 
 void twitter_status_print(twitter_status_t *status){
     char text[2048];
-    twitter_unescape(text, status->text, 2048);
-    printf("@%s: %s\n", status->user->screen_name, text);
+    twitter_status_t *rt;
+
+    if(rt = status->rt){
+        twitter_unescape(text, rt->text, 2048);
+        printf("@%s: RT @%s: %s\n",
+               status->user->screen_name, rt->user->screen_name, rt->text);
+    }else{
+        twitter_unescape(text, status->text, 2048);
+        printf("@%s: %s\n", status->user->screen_name, text);
+    }
 }
 
 void twitter_status_dump(twitter_status_t *status){

@@ -25,7 +25,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <glib.h>
-#include <libxml/xmlreader.h>
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
 #include <Imlib2.h>

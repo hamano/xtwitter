@@ -40,6 +40,7 @@ typedef struct{
     const char *text;
     const char *source;
     const twitter_user_t *user;
+    const struct twitter_status_t *rt;
 }twitter_status_t;
 
 typedef struct{
