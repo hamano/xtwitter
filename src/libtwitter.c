@@ -352,7 +352,7 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
 
     obj_tmp = json_object_object_get(obj_root, "event");
     if(obj_tmp){
-        printf("EVENT: %s\n", json_object_to_json_string(obj_root));
+        printf("EVENT: %s\n", json_object_to_json_string(obj_tmp));
         json_object_put(obj_root);
         return realsize;
     }
@@ -366,7 +366,6 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
 
     obj_tmp = json_object_object_get(obj_root, "user");
     if(obj_tmp){
-        //printf("USER: %s\n", json_object_to_json_string(obj_root));
         twitter_popup_user(twitter, obj_root, obj_tmp);
         json_object_put(obj_root);
         return realsize;
