@@ -30,13 +30,13 @@
 #include <oauth.h>
 #include <regex.h>
 #include <json/json.h>
+#include <termio.h>
 #include "libtwitter.h"
 
 twitter_t* twitter_new()
 {
     twitter_t *twitter;
     const char *home;
-    int ret;
 
     home = getenv("HOME");
     if(!home)
@@ -63,12 +63,6 @@ twitter_t* twitter_new()
 
     twitter->shortener = NULL;
 
-    ret = mkdir(twitter->images_dir, 0755);
-    if(ret && errno != EEXIST){
-        fprintf(stderr, "can't create image directory.\n");
-        return NULL;
-    }
-
     return twitter;
 }
 
@@ -90,6 +84,87 @@ void twitter_free(twitter_t *twitter)
     return;
 }
 
+static int secure_input(char *passwd, size_t size, int mask){
+    int c;
+    size_t len = 0;
+    struct termio term, term_orig;
+
+    ioctl(0, TCGETA, &term_orig);
+    term = term_orig;
+    //term.c_lflag &= ~(ICANON|ECHO|ECHOE|ECHOK|ECHONL);
+    term.c_lflag &= ~(ICANON|ECHO);
+    ioctl(0, TCSETA, &term);
+
+    while((c = getchar()) != '\n'){
+        //printf("hex=%x\n", c);
+        if(c == '\b' || c == 0x7f){
+            if(len > 0){
+                putchar('\b');
+                putchar(' ');
+                putchar('\b');
+                len--;
+            }
+            continue;
+        }
+        if(len >= size - 1){
+            break;
+        }
+        if(mask == 0){
+            putchar(c);
+        }else{
+            putchar(mask);
+        }
+        passwd[len++] = c;
+    }
+    passwd[len] = '\0';
+    putchar('\n');
+    ioctl(0, TCSETA, &term_orig);
+
+    if(len == 0){
+        return 1;
+    }else if(len >= size){
+        return 2;
+    }else{
+        return 0;
+    }
+}
+
+
+int twitter_setup_account(const char *config_file){
+    int ret;
+    char username[256];
+    char password[256];
+    FILE *fp;
+
+    printf("Username: ");
+    while((ret = secure_input(username, sizeof(username), 0)) != 0){
+        if(ret == 1){
+            printf("Too short\n");
+        }else{
+            printf("Too long\n");
+        }
+        printf("Retry Input Username: ");
+    }
+
+    printf("Password: ");
+    while((ret = secure_input(password, sizeof(password), '*')) != 0){
+        if(ret == 1){
+            printf("Too short\n");
+        }else{
+            printf("Too long\n");
+        }
+        printf("Retry Input Password: ");
+    }
+    fp = fopen(config_file, "w");
+    if(!fp){
+        return -1;
+    }
+    fprintf(fp, "user=%s\n", username);
+    fprintf(fp, "pass=%s\n", password);
+    fclose(fp);
+    return 0;
+}
+
 int twitter_config(twitter_t *twitter)
 {
     const char *home;
@@ -108,12 +183,20 @@ int twitter_config(twitter_t *twitter)
     snprintf(config_dir, PATH_MAX, "%s/.xtwitter/", home);
     snprintf(config_file, PATH_MAX, "%s/.xtwitter/config", home);
 
+    if(stat(config_dir, &st) && errno == ENOENT){
+        mkdir(config_dir, 0755);
+    }
+
+    if(stat(twitter->images_dir, &st) && errno == ENOENT){
+        mkdir(twitter->images_dir, 0755);
+    }
+
+    if(stat(config_file, &st) && errno == ENOENT){
+        twitter_setup_account(config_file);
+    }
+
     fp = fopen(config_file, "r");
     if(!fp){
-        fprintf(stderr, "config open error\n");
-        if(stat(config_dir, &st)){
-            mkdir(config_dir, 0755);
-        }
         if(stat(config_file, &st)){
             fp = fopen(config_file, "w");
             fprintf(fp, "user=\npass=\n");
@@ -310,7 +393,7 @@ static void twitter_popup_user(twitter_t *twitter,
         obj_tmp = json_object_object_get(obj_rt_user, "screen_name");
         rt_user.screen_name = json_object_get_string(obj_tmp);
         rt_status.user = &rt_user;
-        status.rt = &rt_status;
+        status.rt = (struct twitter_status_t*)&rt_status;
     }else{
         status.rt = NULL;
     }
@@ -563,9 +646,9 @@ void twitter_xmlescape(char *dest, const char *src, size_t n)
 
 void twitter_status_print(twitter_status_t *status){
     char text[2048];
-    twitter_status_t *rt;
+    twitter_status_t *rt = status->rt;
 
-    if(rt = status->rt){
+    if(rt){
         twitter_unescape(text, rt->text, 2048);
         printf("@%s: RT @%s: %s\n",
                status->user->screen_name, rt->user->screen_name, rt->text);

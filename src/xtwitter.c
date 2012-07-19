@@ -468,7 +468,11 @@ int main(int argc, char *argv[]){
     }
 
     twitter = twitter_new();
-    twitter_config(twitter);
+    ret = twitter_config(twitter);
+    if(ret){
+        fprintf(stderr, "config error.\n");
+        return EXIT_FAILURE;
+    }
     twitter->popup = xtwitter_libnotify_popup;
 
     if(opt_debug){
