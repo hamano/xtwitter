@@ -325,7 +325,7 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
 
     curl_easy_setopt(curl, CURLOPT_URL, apiuri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
     /* 2010-08-31 no need basic auth
       curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
       curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
