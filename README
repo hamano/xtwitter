@@ -11,17 +11,13 @@ It'll works on Linux, and other UNIX-like operating systems.
   X.org
   Imlib2
   libcurl
-  libxml 2.0
   glib 2.0
   liboauth
-  libnotify(optional)
+  libjson
 
 * Build
 
   % ./configure
-
-  # If you want to use libnotify.
-  % ./configure --enable-libnotify
 
   % make
 

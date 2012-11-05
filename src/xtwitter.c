@@ -30,7 +30,6 @@
 #include <Imlib2.h>
 #include <regex.h>
 
-#include <libnotify/notify.h>
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH  400
@@ -102,58 +101,12 @@ int xtwitter_x_init()
     }
 
     window_x = root_width - XTWITTER_WINDOW_WIDTH - 10;
-    window_y = root_height - XTWITTER_WINDOW_HEIGHT - 10;
+    //window_y = root_height - XTWITTER_WINDOW_HEIGHT - 10;
+    window_y = 32;
 
 	imlib_context_set_display(display);
 	imlib_context_set_visual(DefaultVisual(display, 0));
 	imlib_context_set_colormap(DefaultColormap(display, 0));
-    return 0;
-}
-
-int xtwitter_libnotify_init()
-{
-    if(!notify_init(PACKAGE)){
-        return -1;
-    }
-    return 0;
-}
-
-int xtwitter_libnotify_popup(void *data, twitter_status_t *status)
-{
-    twitter_t *twitter = data;
-    NotifyNotification *notify;
-    char image_name[PATH_MAX];
-    char image_path[PATH_MAX];
-    //char text[2048];
-    int match;
-    NotifyUrgency urgency;
-    char text[2048];
-    char text2[2048];
-    char *body;
-
-    match = regexec(&id_regex, status->text, 0, NULL, 0);
-    if(match != REG_NOMATCH){
-        urgency = NOTIFY_URGENCY_CRITICAL;
-    }else{
-        urgency = NOTIFY_URGENCY_NORMAL;
-    }
-
-    twitter_unescape(text, status->text, 2048);
-    twitter_xmlescape(text2, text, 2048);
-    twitter_stat_image(twitter, status);
-    twitter_image_name(status, image_name);
-	snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
-
-    notify = notify_notification_new(status->user->screen_name,
-                                     text2, image_path
-#if NOTIFY_CHECK_VERSION (0, 7, 0)
-        );
-#else
-    ,NULL);
-#endif
-
-    notify_notification_set_urgency(notify, urgency);
-    notify_notification_show(notify, NULL);
     return 0;
 }
 
@@ -292,13 +245,7 @@ void xtwitter_show_search(twitter_t *twitter, GList *statuses){
             twitter_status_print(status);
 		}
 
-#ifdef ENABLE_LIBNOTIFY
-        //xtwitter_libnotify_popup(twitter, status, NOTIFY_URGENCY_LOW);
-        xtwitter_libnotify_popup(twitter, status);
-#else
         xtwitter_x_popup(twitter, status);
-#endif
-
     }while((statuses = g_list_previous(statuses)));
 }
 
@@ -473,7 +420,8 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "config error.\n");
         return EXIT_FAILURE;
     }
-    twitter->popup = xtwitter_libnotify_popup;
+    //twitter->popup = NULL;
+    twitter->popup = xtwitter_x_popup;
 
     if(opt_debug){
         twitter->debug = opt_debug;
@@ -510,19 +458,11 @@ int main(int argc, char *argv[]){
 
     regcomp(&id_regex, twitter->user, REG_EXTENDED | REG_NOSUB);
 
-#ifdef ENABLE_LIBNOTIFY
-    ret = xtwitter_libnotify_init();
-    if(ret){
-        fprintf(stderr, "xtwitter: error at xtwitter_init_libnotify()\n");
-        return EXIT_FAILURE;
-    }
-#else
     ret = xtwitter_x_init();
     if(ret){
         fprintf(stderr, "xtwitter: error at xtwitter_init_x()\n");
         return EXIT_FAILURE;
     }
-#endif
 
     if(opt_daemonize){
         daemonize();

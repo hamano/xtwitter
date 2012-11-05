@@ -398,12 +398,16 @@ static void twitter_popup_user(twitter_t *twitter,
         status.rt = NULL;
     }
 
+    twitter_stat_image(twitter, &status);
+
     if(twitter->debug > 1){
         twitter_status_dump(&status);
     }else if(twitter->quiet == 0){
         twitter_status_print(&status);
     }
-    twitter->popup(twitter, &status);
+    if(twitter->popup){
+        twitter->popup(twitter, &status);
+    }
 }
 
 static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
@@ -418,12 +422,19 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     if(realsize <= 2){
         return realsize;
     }
-    tokener = json_tokener_new();
-    obj_root = json_tokener_parse_ex(tokener, ptr, realsize);
-    json_tokener_free(tokener);
-    if (is_error(obj_root)){
+    //tokener = json_tokener_new();
+    //obj_root = json_tokener_parse_ex(tokener, ptr, realsize);
+    //json_tokener_free(tokener);
+    obj_root = json_tokener_parse(ptr);
+    /*
+    if(!obj_root){
+        fprintf(stderr, "obj_root is NULL\n");
+        return realsize;
+    }
+    */
+    if(is_error(obj_root)){
+        fprintf(stderr, "json_tokener_errors: %s\n", json_tokener_errors[-(unsigned long)obj_root]);
         fprintf(stderr, "parse error: ptr=%s\n", (char *)ptr);
-        json_object_put(obj_root);
         return realsize;
     }
     obj_tmp = json_object_object_get(obj_root, "friends");
@@ -444,13 +455,16 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     if(obj_tmp){
         printf("DELETE: %s\n", json_object_to_json_string(obj_root));
         json_object_put(obj_root);
+        json_object_put(obj_tmp);
         return realsize;
     }
+    json_object_put(obj_tmp);
 
     obj_tmp = json_object_object_get(obj_root, "user");
     if(obj_tmp){
         twitter_popup_user(twitter, obj_root, obj_tmp);
         json_object_put(obj_root);
+        json_object_put(obj_tmp);
         return realsize;
     }
 

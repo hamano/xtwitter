@@ -16,18 +16,6 @@ PKG_CHECK_MODULES(GLIB, glib-2.0)
 PKG_CHECK_MODULES(CURL, libcurl)
 PKG_CHECK_MODULES(OAUTH, oauth)
 PKG_CHECK_MODULES(JSON, json)
-PKG_CHECK_MODULES(LIBNOTIFY, libnotify)
-AC_DEFINE([ENABLE_LIBNOTIFY], [], [Description])
-
-#AC_ARG_ENABLE(libnotify,
-#[AC_HELP_STRING([--disable-libnotify], [enable the libnotify [default=no]])])
-#if test "$enable_libnotify" = "yes"; then
-#   PKG_CHECK_MODULES(LIBNOTIFY, libnotify)
-#   AC_DEFINE([ENABLE_LIBNOTIFY], [], [Description])
-#fi
-
-#AC_ARG_WITH(libnotify,
-#[AC_HELP_STRING([--with-libnotify], [use the libnotify])])
 
 # Checks for libraries.
 AC_CHECK_LIB([X11], [main])
