@@ -27,7 +27,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
 #include <X11/Xutil.h>
-#include <X11/Xatom.h> 
+#include <X11/Xatom.h>
 #include <Imlib2.h>
 #include <regex.h>
 #include <pthread.h>
@@ -41,7 +41,7 @@
 Display *display;
 Window window;
 GC gc;
-
+Pixmap pixmap;
 XFontSet text_fonts;
 XFontSet user_fonts;
 unsigned long color_black, color_white;
@@ -59,6 +59,8 @@ int xtwitter_x_init()
     char** missing_list;
     char* def_string;
 
+    XInitThreads();
+
     if(!setlocale(LC_CTYPE, "")){
         fprintf(stderr, "error: setlocale()\n");
         return -1;
@@ -72,10 +74,10 @@ int xtwitter_x_init()
         fprintf(stderr, "Can't open display\n");
         return -1;
     }
-    root   = DefaultRootWindow(display);
+    root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
-    color_white  = WhitePixel(display, screen);
-    color_black  = BlackPixel(display, screen);
+    color_white= WhitePixel(display, screen);
+    color_black= BlackPixel(display, screen);
 
     XGetGeometry(display, RootWindow(display, 0), &root,
                  &root_x, &root_y, &root_width, &root_height,
@@ -111,9 +113,7 @@ int xtwitter_x_init()
     prop.encoding = XA_STRING;
     prop.format = 8;
     prop.nitems = strlen(PACKAGE);
-    XSetWMProperties(display, window, &prop, NULL, NULL, 0, NULL, NULL, NULL );
-
-
+    XSetWMName(display, window, &prop);
 /*
     XSetWindowAttributes attr;
     attr.override_redirect=True;
@@ -121,7 +121,6 @@ int xtwitter_x_init()
 */
 
     gc = XCreateGC(display, window, 0, NULL);
-
     XSetBackground(display, gc, color_white);
     XSetForeground(display, gc, color_black);
 
@@ -130,6 +129,17 @@ int xtwitter_x_init()
 	imlib_context_set_display(display);
 	imlib_context_set_visual(DefaultVisual(display, 0));
 	imlib_context_set_colormap(DefaultColormap(display, 0));
+
+    pixmap = XCreatePixmap(display, window,
+                           XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT,
+                           DefaultDepth(display, screen));
+
+    XSetForeground(display, gc, color_white);
+    XSetBackground(display, gc, color_black);
+    XFillRectangle(display, pixmap, gc,
+                   0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT);
+    XSetForeground(display, gc, color_black);
+    XSetBackground(display, gc, color_white);
 
     XFlush(display);
     return 0;
@@ -176,8 +186,18 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     twitter_image_name(status, image_name);
     snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
 
+/*
     XClearArea(display, window, 0, 0,
                XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0);
+*/
+    XSetForeground(display, gc, color_white);
+    XSetBackground(display, gc, color_black);
+
+    XFillRectangle(display, pixmap, gc,
+                   0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT);
+
+    XSetForeground(display, gc, color_black);
+    XSetBackground(display, gc, color_white);
 
     switch(text_line){
     case 1:
@@ -203,24 +223,25 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     i=0;
     while(*text){
         pos=utf8pos(text, 48);
-        XmbDrawString(display, window, text_fonts, gc,
+        XmbDrawString(display, pixmap, text_fonts, gc,
                       56, pad_y + 16 * i++, text, pos);
         text+=pos;
     }
 
-    XmbDrawString(display, window, user_fonts, gc, 5, 20,
+    XmbDrawString(display, pixmap, user_fonts, gc, 5, 20,
                   status->user->screen_name,
                   strlen(status->user->screen_name));
 
     image = imlib_load_image(image_path);
     if(image){
 		imlib_context_set_image(image);
-		imlib_context_set_drawable(window);
+		imlib_context_set_drawable(pixmap);
 		imlib_render_image_on_drawable(5, 35);
     }
 
-    XFlush(display);
-
+    XCopyArea(display, pixmap, window, gc,
+              0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0, 0);
+    //XFlush(display);
     return 0;
 }
 
@@ -340,8 +361,12 @@ static void daemonize(void)
 
 void *xtwitter_stream_thread(void *arg){
     twitter_t *twitter = arg;
+    char text[1024];
+
+    //while(1) sleep(10);
     twitter_user_stream(twitter);
     //twitter_public_stream(twitter);
+
     return NULL;
 }
 
@@ -456,7 +481,25 @@ int main(int argc, char *argv[]){
         daemonize();
     }
 
-    pthread_join(stream_thread, NULL);
+    XEvent event;
+    XSelectInput(display, window, ExposureMask);
+    while(1){
+        while(XPending(display)){
+            XLockDisplay(display);
+            XNextEvent(display, &event);
+            XUnlockDisplay(display);
+            switch(event.type){
+            case Expose:
+                //printf("event: Expose count=%d\n", event.xexpose.count);
+                XCopyArea(display, pixmap, window, gc,
+                          0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0, 0);
+                //XFlush(display);
+                break;
+            }
+        }
+        usleep(100000);
+    }
+    //pthread_join(stream_thread, NULL);
 
     twitter_free(twitter);
     return EXIT_SUCCESS;
