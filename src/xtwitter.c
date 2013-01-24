@@ -84,7 +84,7 @@ int xtwitter_x_init()
                  &root_x, &root_y, &root_width, &root_height,
                  &root_border, &root_depth);
 
-    text_fonts = XCreateFontSet(display, "-*-*-medium-r-normal--14-*-*-*", 
+    text_fonts = XCreateFontSet(display, "-*-*-medium-r-normal--12-*-*-*", 
                                 &missing_list, &missing_count, &def_string);
 
     if(!text_fonts){
@@ -137,12 +137,11 @@ int xtwitter_x_init()
     prop.nitems = strlen(PACKAGE);
     XSetWMName(display, window, &prop);
 
+    // fill pixmap by white
     XSetForeground(display, gc, color_white);
     XSetBackground(display, gc, color_black);
     XFillRectangle(display, pixmap, gc,
                    0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT);
-    XSetForeground(display, gc, color_black);
-    XSetBackground(display, gc, color_white);
 
     XMapWindow(display, window);
     XFlush(display);
@@ -183,7 +182,7 @@ int xtwitter_x_popup(void *config, twitter_status_t *status)
     //xmlunescape((char*)status->text);
 
     while(*text){
-        pos=utf8pos(text, 48);
+        pos=utf8pos(text, 56);
         text+=pos;
         text_line++;
     }
@@ -201,39 +200,39 @@ int xtwitter_x_popup(void *config, twitter_status_t *status)
     XFillRectangle(display, pixmap, gc,
                    0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT);
 
-    XSetForeground(display, gc, color_black);
-    XSetBackground(display, gc, color_white);
-
     switch(text_line){
     case 1:
-        pad_y = 54;
+        pad_y = 60;
         break;
     case 2:
-        pad_y = 46;
+        pad_y = 56;
         break;
     case 3:
-        pad_y = 38;
+        pad_y = 50;
         break;
     case 4:
-        pad_y = 30;
+        pad_y = 42;
         break;
     case 5:
-        pad_y = 24;
+        pad_y = 34;
         break;
     default:
-        pad_y = 15;
+        pad_y = 34;
     }
+
+    XSetForeground(display, gc, color_black);
+    XSetBackground(display, gc, color_white);
 
     text = status->text;
     i=0;
     while(*text){
-        pos=utf8pos(text, 48);
+        pos=utf8pos(text, 56);
         XmbDrawString(display, pixmap, text_fonts, gc,
-                      56, pad_y + 16 * i++, text, pos);
+                      58, pad_y + 14 * i++, text, pos);
         text+=pos;
     }
 
-    XmbDrawString(display, pixmap, user_fonts, gc, 5, 20,
+    XmbDrawString(display, pixmap, user_fonts, gc, 5, 17,
                   status->user->screen_name,
                   strlen(status->user->screen_name));
 
