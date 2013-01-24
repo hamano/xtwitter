@@ -1,6 +1,6 @@
 /*
  * Xtwitter - xtwitter.c: twitter client for X
- * Copyright (C) 2008-2012 Tsukasa Hamano <code@cuspy.org>
+ * Copyright (C) 2008-2013 Tsukasa Hamano <code@cuspy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,12 +24,15 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <glib.h>
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
+#include <X11/Xutil.h>
+#include <X11/Xatom.h> 
 #include <Imlib2.h>
 #include <regex.h>
+#include <pthread.h>
 
+#include <glib.h>
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH  400
@@ -38,10 +41,10 @@
 Display *display;
 Window window;
 GC gc;
+
 XFontSet text_fonts;
 XFontSet user_fonts;
 unsigned long color_black, color_white;
-int window_x, window_y;
 
 Imlib_Image *image;
 regex_t id_regex;
@@ -50,14 +53,13 @@ int xtwitter_x_init()
 {
     Window root;
     int screen;
-
     int root_x, root_y;
     unsigned int root_width, root_height, root_border, root_depth;
     int missing_count;
     char** missing_list;
     char* def_string;
 
-    if(!setlocale( LC_CTYPE, "")){
+    if(!setlocale(LC_CTYPE, "")){
         fprintf(stderr, "error: setlocale()\n");
         return -1;
     }
@@ -100,13 +102,36 @@ int xtwitter_x_init()
         XFreeStringList(missing_list);
     }
 
-    window_x = root_width - XTWITTER_WINDOW_WIDTH - 10;
-    //window_y = root_height - XTWITTER_WINDOW_HEIGHT - 10;
-    window_y = 32;
+    window = XCreateSimpleWindow(display, RootWindow(display, 0), 0, 0,
+                                 XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT,
+                                 1, color_black, color_white);
+
+    XTextProperty  prop;
+    prop.value    = (unsigned char *)PACKAGE;
+    prop.encoding = XA_STRING;
+    prop.format = 8;
+    prop.nitems = strlen(PACKAGE);
+    XSetWMProperties(display, window, &prop, NULL, NULL, 0, NULL, NULL, NULL );
+
+
+/*
+    XSetWindowAttributes attr;
+    attr.override_redirect=True;
+    XChangeWindowAttributes(display, window, CWOverrideRedirect, &attr);
+*/
+
+    gc = XCreateGC(display, window, 0, NULL);
+
+    XSetBackground(display, gc, color_white);
+    XSetForeground(display, gc, color_black);
+
+    XMapWindow(display, window);
 
 	imlib_context_set_display(display);
 	imlib_context_set_visual(DefaultVisual(display, 0));
 	imlib_context_set_colormap(DefaultColormap(display, 0));
+
+    XFlush(display);
     return 0;
 }
 
@@ -131,7 +156,6 @@ int utf8pos(const char *str, int width){
 
 int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 {
-    XSetWindowAttributes attr;
     char image_name[PATH_MAX];
     char image_path[PATH_MAX];
     int pad_y;
@@ -152,17 +176,8 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     twitter_image_name(status, image_name);
     snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
 
-    window = XCreateSimpleWindow(display, RootWindow(display, 0),
-                                 window_x, window_y,
-                                 XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT,
-                                 1, color_black, color_white);
-
-    gc = XCreateGC(display, window, 0, NULL);
-    XSetBackground(display, gc, color_white);
-    XSetForeground(display, gc, color_black);
-    attr.override_redirect=True;
-    XChangeWindowAttributes(display, window, CWOverrideRedirect, &attr);
-    XMapWindow(display, window);
+    XClearArea(display, window, 0, 0,
+               XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0);
 
     switch(text_line){
     case 1:
@@ -183,6 +198,7 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     default:
         pad_y = 15;
     }
+
     text = status->text;
     i=0;
     while(*text){
@@ -191,6 +207,7 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
                       56, pad_y + 16 * i++, text, pos);
         text+=pos;
     }
+
     XmbDrawString(display, window, user_fonts, gc, 5, 20,
                   status->user->screen_name,
                   strlen(status->user->screen_name));
@@ -199,13 +216,11 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
     if(image){
 		imlib_context_set_image(image);
 		imlib_context_set_drawable(window);
-		imlib_render_image_on_drawable(5, 25);
+		imlib_render_image_on_drawable(5, 35);
     }
 
     XFlush(display);
-    sleep(twitter->show_interval);
-    XDestroyWindow(display, window);
-    XFlush(display);
+
     return 0;
 }
 
@@ -249,44 +264,6 @@ void xtwitter_show_search(twitter_t *twitter, GList *statuses){
     }while((statuses = g_list_previous(statuses)));
 }
 
-// obsolute
-void xtwitter_loop(twitter_t *twitter)
-{
-    GList* timeline = NULL;
-
-    while(1){
-        //timeline = twitter_friends_timeline(twitter);
-        if(twitter->debug >= 2){
-            printf("timeline num: %d\n", g_list_length(timeline));
-		}
-
-        twitter_stat_images(twitter, timeline);
-        xtwitter_show_timeline(twitter, timeline);
-        twitter_statuses_free(timeline);
-        timeline = NULL;
-        sleep(twitter->fetch_interval);
-    }
-}
-
-// obsolute
-void xtwitter_search_loop(twitter_t *twitter, const char *word)
-{
-    GList* timeline = NULL;
-
-    while(1){
-        //timeline = twitter_search_timeline(twitter, word);
-        if(twitter->debug >= 2){
-            printf("timeline num: %d\n", g_list_length(timeline));
-		}
-
-        //twitter_fetch_images(twitter, timeline);
-        xtwitter_show_search(twitter, timeline);
-        twitter_statuses_free(timeline);
-        timeline = NULL;
-        sleep(twitter->fetch_interval);
-    }
-}
-
 void xtwitter_update(twitter_t *twitter, const char *text)
 {
     int count;
@@ -306,11 +283,11 @@ void xtwitter_update(twitter_t *twitter, const char *text)
     fprintf(stdout, "done\n");
 }
 
-void xtwitter_count(twitter_t *twitter, const char *text)
+int xtwitter_count(twitter_t *twitter, const char *text)
 {
     int count;
     char shortentext[PATH_MAX];
-    int ret;
+    int ret = 0;
 
     count = twitter_count(text);
     printf("text: %s\n", text);
@@ -321,6 +298,7 @@ void xtwitter_count(twitter_t *twitter, const char *text)
     }
     printf("shortencount: %d\n", twitter_count(shortentext));
     printf("shortentext: %s\n", shortentext);
+    return ret;
 }
 
 void xtwitter_update_stdin(twitter_t *twitter)
@@ -358,6 +336,13 @@ static void daemonize(void)
     freopen("/dev/null", "r", stdin);
     freopen("/dev/null", "w", stdout);
     freopen("/dev/null", "w", stderr);
+}
+
+void *xtwitter_stream_thread(void *arg){
+    twitter_t *twitter = arg;
+    twitter_user_stream(twitter);
+    //twitter_public_stream(twitter);
+    return NULL;
 }
 
 int main(int argc, char *argv[]){
@@ -420,8 +405,6 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "config error.\n");
         return EXIT_FAILURE;
     }
-    //twitter->popup = NULL;
-    twitter->popup = xtwitter_x_popup;
 
     if(opt_debug){
         twitter->debug = opt_debug;
@@ -463,18 +446,17 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "xtwitter: error at xtwitter_init_x()\n");
         return EXIT_FAILURE;
     }
+    twitter->popup = xtwitter_x_popup;
+    pthread_t stream_thread;
+
+    int status = pthread_create(&stream_thread,
+                                NULL, xtwitter_stream_thread, twitter);
 
     if(opt_daemonize){
         daemonize();
     }
 
-    if(opt_obsolete){
-        xtwitter_loop(twitter);
-    }else if(opt_search){
-        xtwitter_search_loop(twitter, opt_search_word);
-    }else{
-        twitter_user_stream(twitter);
-    }
+    pthread_join(stream_thread, NULL);
 
     twitter_free(twitter);
     return EXIT_SUCCESS;
