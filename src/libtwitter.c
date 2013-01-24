@@ -444,7 +444,8 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     */
     if(is_error(obj_root)){
         fprintf(stderr, "json_tokener_errors: %s\n", json_tokener_errors[-(unsigned long)obj_root]);
-        fprintf(stderr, "parse error: ptr=%s\n", (char *)ptr);
+        fprintf(stderr, "parse error: realsize=%d\n", realsize);
+        fprintf(stderr, "ptr=%s\n", (char *)ptr);
         return realsize;
     }
     obj_tmp = json_object_object_get(obj_root, "friends");
@@ -465,10 +466,8 @@ static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
     if(obj_tmp){
         printf("DELETE: %s\n", json_object_to_json_string(obj_root));
         json_object_put(obj_root);
-        json_object_put(obj_tmp);
         return realsize;
     }
-    json_object_put(obj_tmp);
 
     obj_tmp = json_object_object_get(obj_root, "user");
     if(obj_tmp){
@@ -500,7 +499,7 @@ int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_stream_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)twitter);
-    //curl_easy_setopt(curl, CURLE_OPERATION_TIMEDOUT, 10);
+    //curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
     // 2010-07-20 bug
     //curl_easy_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, 1);
 
@@ -509,12 +508,7 @@ int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
         fprintf(stderr, "error: %s\n", curl_easy_strerror(code));
         return -1;
     }
-/*
-    if(twitter->debug >= 3){
-        fwrite(buf->data, 1, buf->len, stderr);
-        fprintf(stderr, "\n");
-    }
-*/
+
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
     if(res != 200){
         fprintf(stderr, "error respose code: %ld\n", res);
@@ -686,7 +680,7 @@ void twitter_xmlescape(char *dest, const char *src, size_t n)
 
 void twitter_status_print(twitter_status_t *status){
     char text[2048];
-    twitter_status_t *rt = status->rt;
+    twitter_status_t *rt = (twitter_status_t *)status->rt;
 
     if(rt){
         twitter_unescape(text, rt->text, 2048);

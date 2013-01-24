@@ -109,21 +109,8 @@ int xtwitter_x_init()
                                  XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT,
                                  1, color_black, color_white);
 
-    XTextProperty  prop;
-    prop.value    = (unsigned char *)PACKAGE;
-    prop.encoding = XA_STRING;
-    prop.format = 8;
-    prop.nitems = strlen(PACKAGE);
-    XSetWMName(display, window, &prop);
-
     atom_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display, window, &atom_delete_window, 1);
-
-/*
-    XSetWindowAttributes attr;
-    attr.override_redirect=True;
-    XChangeWindowAttributes(display, window, CWOverrideRedirect, &attr);
-*/
 
     gc = XCreateGC(display, window, 0, NULL);
     XSetBackground(display, gc, color_white);
@@ -136,6 +123,19 @@ int xtwitter_x_init()
     pixmap = XCreatePixmap(display, window,
                            XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT,
                            DefaultDepth(display, screen));
+
+    // control under window manager
+    XSetWindowAttributes attr;
+    attr.override_redirect = False;
+    XChangeWindowAttributes(display, window, CWOverrideRedirect, &attr);
+
+    // set title bar
+    XTextProperty  prop;
+    prop.value    = (unsigned char *)PACKAGE;
+    prop.encoding = XA_STRING;
+    prop.format = 8;
+    prop.nitems = strlen(PACKAGE);
+    XSetWMName(display, window, &prop);
 
     XSetForeground(display, gc, color_white);
     XSetBackground(display, gc, color_black);
@@ -168,8 +168,9 @@ int utf8pos(const char *str, int width){
     return i;
 }
 
-int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
+int xtwitter_x_popup(void *config, twitter_status_t *status)
 {
+    twitter_t *twitter = config;
     char image_name[PATH_MAX];
     char image_path[PATH_MAX];
     int pad_y;
@@ -245,6 +246,7 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
 
     XCopyArea(display, pixmap, window, gc,
               0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0, 0);
+    //XRaiseWindow(display, window);
     //XFlush(display);
     return 0;
 }
@@ -338,7 +340,6 @@ int main(int argc, char *argv[]){
     int opt;
     int opt_debug = 0;
     int opt_search = 0;
-    int opt_obsolete = 0;
     int opt_daemonize = 0;
     char opt_search_word[1024];
     char *opt_update = NULL;
@@ -347,7 +348,7 @@ int main(int argc, char *argv[]){
 
     twitter_t *twitter = NULL;
 
-    while((opt = getopt(argc, argv, "ds:l:u:c:vDo")) != -1){
+    while((opt = getopt(argc, argv, "ds:l:u:c:vD")) != -1){
         switch(opt){
         case 'd':
 			opt_debug++;
@@ -362,9 +363,6 @@ int main(int argc, char *argv[]){
 			break;
         case 'l':
             opt_lang = optarg;
-            break;
-        case 'o':
-            opt_obsolete = 1;
             break;
         case 'u':
             opt_update = optarg;
@@ -439,6 +437,10 @@ int main(int argc, char *argv[]){
 
     int status = pthread_create(&stream_thread,
                                 NULL, xtwitter_stream_thread, twitter);
+    if(status){
+        fprintf(stderr, "xtwitter: error at pthread_create()\n");
+        return EXIT_FAILURE;
+    }
 
     if(opt_daemonize){
         daemonize();

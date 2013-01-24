@@ -87,6 +87,7 @@ void twitter_status_print(twitter_status_t *status);
 void twitter_status_dump(twitter_status_t *status);
 
 int twitter_image_name(twitter_status_t *status, char *name);
+int twitter_stat_image(twitter_t *twitter, twitter_status_t *status);
 int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path);
 int twitter_resize_image(twitter_t *twitter, const char* path);
 
