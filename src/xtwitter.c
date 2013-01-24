@@ -42,6 +42,7 @@ Display *display;
 Window window;
 GC gc;
 Pixmap pixmap;
+Atom atom_delete_window;
 XFontSet text_fonts;
 XFontSet user_fonts;
 unsigned long color_black, color_white;
@@ -114,6 +115,10 @@ int xtwitter_x_init()
     prop.format = 8;
     prop.nitems = strlen(PACKAGE);
     XSetWMName(display, window, &prop);
+
+    atom_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    XSetWMProtocols(display, window, &atom_delete_window, 1);
+
 /*
     XSetWindowAttributes attr;
     attr.override_redirect=True;
@@ -123,8 +128,6 @@ int xtwitter_x_init()
     gc = XCreateGC(display, window, 0, NULL);
     XSetBackground(display, gc, color_white);
     XSetForeground(display, gc, color_black);
-
-    XMapWindow(display, window);
 
 	imlib_context_set_display(display);
 	imlib_context_set_visual(DefaultVisual(display, 0));
@@ -141,6 +144,7 @@ int xtwitter_x_init()
     XSetForeground(display, gc, color_black);
     XSetBackground(display, gc, color_white);
 
+    XMapWindow(display, window);
     XFlush(display);
     return 0;
 }
@@ -361,7 +365,6 @@ static void daemonize(void)
 
 void *xtwitter_stream_thread(void *arg){
     twitter_t *twitter = arg;
-    char text[1024];
 
     //while(1) sleep(10);
     twitter_user_stream(twitter);
@@ -495,12 +498,19 @@ int main(int argc, char *argv[]){
                           0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0, 0);
                 //XFlush(display);
                 break;
+            case ClientMessage:
+                if(event.xclient.data.l[0] == atom_delete_window){
+                    goto exit;
+                }
+                break;
             }
         }
         usleep(100000);
     }
-    //pthread_join(stream_thread, NULL);
 
+
+exit:
+    //pthread_join(stream_thread, NULL);
     twitter_free(twitter);
     return EXIT_SUCCESS;
 }
