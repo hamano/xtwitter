@@ -24,7 +24,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
-#include <glib.h>
 #include <curl/curl.h>
 #include <Imlib2.h>
 #include <oauth.h>
@@ -307,8 +306,17 @@ int twitter_xauth(twitter_t *twitter)
 static size_t twitter_curl_write_cb(void *ptr, size_t size, size_t nmemb,
                                     void *data)
 {
+    buf_t *buf = data;
     size_t realsize = size * nmemb;
-    g_byte_array_append((GByteArray *)data, (guint8*)ptr, realsize);
+    if(realsize < buf->cap){
+        memcpy(buf->data, ptr, realsize);
+        buf->len = realsize;
+    }else{
+        memcpy(buf->data, ptr, buf->cap - 1);
+        buf->data[buf->cap - 1] = '\0';
+        buf->len = buf->cap - 1;
+        return buf->cap - 1;
+    }
     return realsize;
 }
 
@@ -415,7 +423,7 @@ static void twitter_popup_user(twitter_t *twitter,
 static size_t twitter_curl_stream_cb(void *ptr, size_t size, size_t nmemb,
                                      void *data)
 {
-    json_tokener *tokener;
+    //json_tokener *tokener;
     twitter_t *twitter = data;
     size_t realsize = size * nmemb;
     json_object *obj_root = NULL;
@@ -489,7 +497,7 @@ int twitter_user_stream_read(twitter_t *twitter, const char *apiuri)
 
     curl_easy_setopt(curl, CURLOPT_URL, apiuri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_stream_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)twitter);
     //curl_easy_setopt(curl, CURLE_OPERATION_TIMEDOUT, 10);
@@ -526,10 +534,9 @@ int twitter_update(twitter_t *twitter, const char *status)
     struct curl_httppost *formpost=NULL;
     struct curl_httppost *lastptr=NULL;
     struct curl_slist *headers=NULL;
-    GByteArray *buf;
+    buf_t *buf = NULL;
     char *req_uri;
 
-    buf = g_byte_array_new();
     curl = curl_easy_init();
     if(!curl) {
         fprintf(stderr, "error: curl_easy_init()\n");
@@ -562,10 +569,9 @@ int twitter_update(twitter_t *twitter, const char *status)
     curl_easy_setopt(curl, CURLOPT_URL, req_uri);
     free(req_uri);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, TRUE);
-    //curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-    //curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, twitter_curl_write_cb);
+    buf = buf_new(4096);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)buf);
     curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -575,6 +581,7 @@ int twitter_update(twitter_t *twitter, const char *status)
         printf("error: %s\n", curl_easy_strerror(code));
         return -1;
     }
+
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res);
     if(res != 200){
         printf("error respose code: %ld\n", res);
@@ -582,12 +589,14 @@ int twitter_update(twitter_t *twitter, const char *status)
             fwrite(buf->data, 1, buf->len, stderr);
             fprintf(stderr, "\n");
         }
-        return res;
+    }else{
+        res = 0;
     }
+    buf_free(buf);
     curl_easy_cleanup(curl);
     curl_formfree(formpost);
     curl_slist_free_all(headers);
-    return 0;
+    return res;
 }
 
 void twitter_user_stream(twitter_t *twitter)
@@ -860,6 +869,7 @@ int twitter_count(const char *text){
     return count;
 }
 
+#if 0
 int twitter_shorten_tinyurl(twitter_t *twitter,
                             const char *url,
                             char *shorten_url){
@@ -906,6 +916,7 @@ int twitter_shorten_tinyurl(twitter_t *twitter,
     }
     return 0;
 }
+#endif
 
 int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext){
     regex_t url_regex;
@@ -923,7 +934,8 @@ int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext){
         if(ret != REG_NOMATCH && match[0].rm_so >= 0){
             strncpy(url, text + i, match[0].rm_eo);
             url[match[0].rm_eo] = '\0';
-            ret = twitter_shorten_tinyurl(twitter, url, shorten_url);
+            //ret = twitter_shorten_tinyurl(twitter, url, shorten_url);
+            ret=-1;
             if(ret){
                 printf("shorten error: %d\n", ret);
                 return -1;
@@ -942,6 +954,21 @@ int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext){
     shortentext[j] = '\0';
     return 0;
 }
+
+buf_t *buf_new(size_t cap){
+    buf_t *buf;
+    buf = (buf_t *)malloc(sizeof(buf_t));
+    buf->data = (char *)malloc(cap);
+    buf->cap = cap;
+    buf->len = 0;
+    return buf;
+}
+
+void buf_free(buf_t *buf){
+    free(buf->data);
+    free(buf);
+}
+
 
 /*
  * Local variables:

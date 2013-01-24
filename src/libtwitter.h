@@ -22,12 +22,12 @@
 #define TWITTER_BASE_URI "https://api.twitter.com"
 #define TWITTER_API_PATH_FRIENDS_TIMELINE "/statuses/friends_timeline.xml"
 #define TWITTER_API_PATH_HOME_TIMELINE "/statuses/home_timeline.xml"
-#define TWITTER_API_PATH_UPDATE "/1/statuses/update.xml"
-#define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
-#define TWITTER_API_SEARCH "/search.atom"
+#define TWITTER_API_PATH_UPDATE "/1.1/statuses/update.json"
 #define TWITTER_API_ACCESS_TOKEN "/oauth/access_token"
+
 #define TWITTER_USER_STREAM_URI "https://userstream.twitter.com/2/user.json"
 #define TWITTER_PUBLIC_STREAM_URI "https://stream.twitter.com/1.1/statuses/sample.json"
+#define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
 
 typedef struct{
     const char *id;
@@ -92,3 +92,12 @@ int twitter_resize_image(twitter_t *twitter, const char* path);
 
 void twitter_user_stream(twitter_t *twitter);
 void twitter_public_stream(twitter_t *twitter);
+
+typedef struct{
+    char *data;
+    int len;
+    int cap;
+}buf_t;
+
+buf_t *buf_new(size_t cap);
+void buf_free(buf_t *buf);
