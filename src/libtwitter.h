@@ -1,6 +1,6 @@
 /*
  * Xtwitter - libtwitter.h
- * Copyright (C) 2008-2012 Tsukasa Hamano <code@cuspy.org>
+ * Copyright (C) 2008-2013 Tsukasa Hamano <code@cuspy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,8 @@
 #define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
 #define TWITTER_API_SEARCH "/search.atom"
 #define TWITTER_API_ACCESS_TOKEN "/oauth/access_token"
-#define TWITTER_STREAM_URI "https://userstream.twitter.com/2/user.json"
+#define TWITTER_USER_STREAM_URI "https://userstream.twitter.com/2/user.json"
+#define TWITTER_PUBLIC_STREAM_URI "https://stream.twitter.com/1.1/statuses/sample.json"
 
 typedef struct{
     const char *id;
@@ -76,9 +77,6 @@ int twitter_update(twitter_t *twitter, const char *status);
 int twitter_count(const char *text);
 int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext);
 
-GList* twitter_search_timeline(twitter_t *twitter, const char *word);
-
-void twitter_statuses_free(GList *statuses);
 void twitter_status_free(twitter_status_t *status);
 
 void twitter_unescape(char *dst, const char *src, size_t n);
@@ -89,6 +87,8 @@ void twitter_status_print(twitter_status_t *status);
 void twitter_status_dump(twitter_status_t *status);
 
 int twitter_image_name(twitter_status_t *status, char *name);
-int twitter_fetch_images(twitter_t *twitter, GList *statuses);
 int twitter_fetch_image(twitter_t *twitter, const char *url, const char* path);
 int twitter_resize_image(twitter_t *twitter, const char* path);
+
+void twitter_user_stream(twitter_t *twitter);
+void twitter_public_stream(twitter_t *twitter);

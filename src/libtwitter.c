@@ -1,6 +1,6 @@
 /*
  * Xtwitter - libtwitter.c
- * Copyright (C) 2008-2012 Tsukasa Hamano <code@cuspy.org>
+ * Copyright (C) 2008-2013 Tsukasa Hamano <code@cuspy.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -591,8 +591,23 @@ int twitter_update(twitter_t *twitter, const char *status)
 void twitter_user_stream(twitter_t *twitter)
 {
     char api_uri[PATH_MAX];
+    snprintf(api_uri, PATH_MAX, "%s", TWITTER_USER_STREAM_URI);
+    char *req_uri = oauth_sign_url2(
+        api_uri, NULL, OA_HMAC, "GET",
+        twitter->consumer_key, twitter->consumer_secret,
+        twitter->token_key, twitter->token_secret);
 
-    snprintf(api_uri, PATH_MAX, "%s", TWITTER_STREAM_URI);
+    if(twitter->debug >= 2){
+        printf("req_uri: %s\n", req_uri);
+    }
+
+    twitter_user_stream_read(twitter, req_uri);
+}
+
+void twitter_public_stream(twitter_t *twitter)
+{
+    char api_uri[PATH_MAX];
+    snprintf(api_uri, PATH_MAX, "%s", TWITTER_PUBLIC_STREAM_URI);
     char *req_uri = oauth_sign_url2(
         api_uri, NULL, OA_HMAC, "GET",
         twitter->consumer_key, twitter->consumer_secret,
@@ -692,22 +707,6 @@ void twitter_status_free(twitter_status_t *status){
     free(status);
 }
 
-void twitter_statuses_free(GList *statuses){
-    GList *l = statuses;
-    twitter_status_t *status;
-    if(!statuses){
-        return;
-    }
-    do{
-        status = l->data;
-        if(!status){
-            continue;
-        }
-        twitter_status_free(status);
-    }while((l = g_list_next(l)));
-    g_list_free(statuses);
-}
-
 int twitter_image_name(twitter_status_t *status, char *name){
     size_t i;
     i = strlen(status->user->profile_image_url);
@@ -741,21 +740,6 @@ int twitter_stat_image(twitter_t *twitter, twitter_status_t *status){
         twitter_fetch_image(twitter, url, path);
         twitter_resize_image(twitter, path);
     }
-    return 0;
-}
-
-int twitter_stat_images(twitter_t *twitter, GList *statuses){
-    twitter_status_t *status;
-
-    statuses = g_list_last(statuses);
-    if(!statuses){
-        return 0;
-    }
-
-    do{
-        status = statuses->data;
-        twitter_stat_image(twitter, status);
-    }while((statuses = g_list_previous(statuses)));
     return 0;
 }
 
