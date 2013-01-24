@@ -312,6 +312,7 @@ static size_t twitter_curl_write_cb(void *ptr, size_t size, size_t nmemb,
     return realsize;
 }
 
+#if 0
 int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
 {
     CURL *curl;
@@ -353,6 +354,7 @@ int twitter_fetch(twitter_t *twitter, const char *apiuri, GByteArray *buf)
     curl_easy_cleanup(curl);
     return 0;
 }
+#endif
 
 static void twitter_popup_user(twitter_t *twitter,
                                json_object *obj_root,

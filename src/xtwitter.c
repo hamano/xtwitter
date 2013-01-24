@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <X11/Xlib.h>
@@ -32,7 +33,6 @@
 #include <regex.h>
 #include <pthread.h>
 
-#include <glib.h>
 #include "libtwitter.h"
 
 #define XTWITTER_WINDOW_WIDTH  400
@@ -247,46 +247,6 @@ int xtwitter_x_popup(twitter_t *twitter, twitter_status_t *status)
               0, 0, XTWITTER_WINDOW_WIDTH, XTWITTER_WINDOW_HEIGHT, 0, 0);
     //XFlush(display);
     return 0;
-}
-
-void xtwitter_show_timeline(twitter_t *twitter, GList *statuses){
-    twitter_status_t *status;
-
-    statuses = g_list_last(statuses);
-    if(!statuses){
-        return;
-    }
-    do{
-        status = statuses->data;
-
-        if(twitter->debug > 1){
-            twitter_status_dump(status);
-		}else if(twitter->quiet == 0){
-            twitter_status_print(status);
-		}
-
-        twitter->popup((struct twitter_t *)twitter, status);
-        sleep(twitter->show_interval);
-    }while((statuses = g_list_previous(statuses)));
-}
-
-void xtwitter_show_search(twitter_t *twitter, GList *statuses){
-    twitter_status_t *status;
-    statuses = g_list_last(statuses);
-    if(!statuses){
-        return;
-    }
-    do{
-        status = statuses->data;
-
-        if(twitter->debug > 1){
-            twitter_status_dump(status);
-		}else if(twitter->quiet == 0){
-            twitter_status_print(status);
-		}
-
-        xtwitter_x_popup(twitter, status);
-    }while((statuses = g_list_previous(statuses)));
 }
 
 void xtwitter_update(twitter_t *twitter, const char *text)
@@ -507,7 +467,6 @@ int main(int argc, char *argv[]){
         }
         usleep(100000);
     }
-
 
 exit:
     //pthread_join(stream_thread, NULL);

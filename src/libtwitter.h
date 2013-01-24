@@ -72,7 +72,7 @@ void twitter_free(twitter_t *twitter);
 int twitter_config(twitter_t *twitter);
 int twitter_xauth(twitter_t *twitter);
 
-int twitter_fetch(twitter_t *twitter, const char *api_uri, GByteArray *buf);
+//int twitter_fetch(twitter_t *twitter, const char *api_uri, GByteArray *buf);
 int twitter_update(twitter_t *twitter, const char *status);
 int twitter_count(const char *text);
 int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext);

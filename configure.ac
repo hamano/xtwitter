@@ -12,7 +12,6 @@ AC_PROG_LIBTOOL
 # Checks for packages.
 PKG_CHECK_MODULES(X11, x11)
 PKG_CHECK_MODULES(IMLIB, imlib2)
-PKG_CHECK_MODULES(GLIB, glib-2.0)
 PKG_CHECK_MODULES(CURL, libcurl)
 PKG_CHECK_MODULES(OAUTH, oauth)
 PKG_CHECK_MODULES(JSON, json)
@@ -23,7 +22,7 @@ AC_CHECK_LIB([X11], [main])
 # Checks for header files.
 AC_PATH_X
 AC_HEADER_STDC
-AC_CHECK_HEADERS([stdio.h stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([stdio.h stdlib.h string.h unistd.h pthread.h])
 AC_CHECK_HEADERS(X11/Xlib.h,,
     AC_MSG_ERROR([Please install libx11 development package]))
 AC_CHECK_HEADERS(Imlib2.h,,
