@@ -31,6 +31,17 @@
 #include <X11/Xlocale.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
+#include <X11/Shell.h>
+#include <X11/Xaw/Command.h>
+#include <X11/Xaw/Form.h>
+#include <X11/Xaw/Label.h>
+#include <X11/Xaw/Paned.h>
+#include <X11/Xaw/Viewport.h>
+#include <X11/Xaw/AsciiText.h>
+
+
 #include <Imlib2.h>
 #include <regex.h>
 #include <pthread.h>
@@ -255,6 +266,156 @@ int xtwitter_x_popup(void *config, twitter_status_t *status)
     return 0;
 }
 
+XtAppContext context;
+Widget widget_shell, widget_tl_viewport, widget_tl_form;
+
+static char *default_resources[] = {
+    "xtwitter.title: xtwitter",
+    "xtwitter.geometry: 400x600",
+    "xtwitter*international: True",
+    "xtwitter*fontSet: -*-*-medium-r-normal--12-*-*-*, 6x12",
+    "xtwitter*inputMethod: xim",
+    "xtwitter*preeditType: OverTheSpot,OffTheSpot,Root",
+    NULL
+};
+
+int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
+{
+    static Widget status_paned = NULL;
+    static Widget status_prev_paned = NULL;
+    Widget status_lower_paned = NULL;
+    Widget status_text, name_label, icon_label;
+
+    Arg args[16];
+    int argn = 0;
+    int height, width;
+    char image_name[PATH_MAX];
+    char image_path[PATH_MAX];
+
+    Pixmap *pixmap = NULL;
+
+    twitter_image_name(status, image_name);
+    snprintf(image_path, PATH_MAX, "%s/%s", twitter->images_dir, image_name);
+    image = imlib_load_image(image_path);
+
+    pixmap = XCreatePixmap(XtDisplay(widget_shell),
+                           XtWindow(widget_shell),
+                           48, 48,
+                           DefaultDepth(XtDisplay(widget_shell), 0));
+    if(image){
+		imlib_context_set_image(image);
+		imlib_context_set_drawable(pixmap);
+		imlib_render_image_on_drawable(0, 0);
+    }
+
+    XtVaGetValues(widget_tl_form, XtNwidth, &width, NULL);
+    width -= 20; // margine
+
+    //XawFormDoLayout(widget_tl_form, False);
+
+    argn = 0;
+    XtSetArg(args[argn], XtNheight, (XtArgVal)100); argn++;
+    XtSetArg(args[argn], XtNwidth, (XtArgVal)width); argn++;
+    XtSetArg(args[argn], XtNresizeToPreferred, (XtArgVal)True); argn++;
+    XtSetArg(args[argn], XtNallowResize, (XtArgVal)True); argn++;
+    XtSetArg(args[argn], XtNtop, (XtArgVal)XawChainTop); argn++;
+
+    status_prev_paned = status_paned;
+    status_paned = XtCreateWidget("status_paned",
+                                  panedWidgetClass,
+                                  widget_tl_form, args, argn);
+    if(status_prev_paned!=NULL){
+        XtVaSetValues(status_prev_paned,
+                      XtNfromVert, (XtArgVal)status_paned,
+                      NULL);
+    }
+    XtManageChild(status_paned);
+
+
+    char *name = NULL;
+    asprintf(&name, "@%s (%s)", status->user_screen_name, status->user_name);
+    argn = 0;
+    XtSetArg(args[argn], XtNlabel, name); argn++;
+    XtSetArg(args[argn], XtNshowGrip, (XtArgVal)False); argn++;
+    XtSetArg(args[argn], XtNjustify, (XtArgVal)XtJustifyLeft); argn++;
+    XtSetArg(args[argn], XtNresizeToPreferred, (XtArgVal)True); argn++;
+    //XtSetArg(args[argn], XtNallowResize, (XtArgVal)True); argn++;
+    name_label = XtCreateManagedWidget("name_label",
+                                       labelWidgetClass,
+                                       status_paned, args, argn);
+    free(name);
+
+    argn = 0;
+    XtSetArg(args[argn], XtNorientation, (XtArgVal)XtorientHorizontal); argn++;
+    status_lower_paned = XtCreateManagedWidget("status_lower_paned",
+                                               panedWidgetClass,
+                                               status_paned, args, argn);
+
+    argn = 0;
+    XtSetArg(args[argn], XtNshowGrip, (XtArgVal)False); argn++;
+    XtSetArg(args[argn], XtNheight, (XtArgVal)58); argn++;
+    XtSetArg(args[argn], XtNwidth, (XtArgVal)58); argn++;
+    XtSetArg(args[argn], XtNmin, (XtArgVal)58); argn++;
+    XtSetArg(args[argn], XtNmax, (XtArgVal)58); argn++;
+    XtSetArg(args[argn], XtNresizeToPreferred, (XtArgVal)True); argn++;
+    XtSetArg(args[argn], XtNbitmap, (XtArgVal)pixmap); argn++;
+    icon_label = XtCreateManagedWidget("icon",
+                                      labelWidgetClass,
+                                      status_lower_paned, args, argn);
+
+
+    argn = 0;
+    XtSetArg(args[argn], XtNstring, (XtArgVal)status->text); argn++;
+    XtSetArg(args[argn], XtNwrap, (XtArgVal)XawtextWrapLine); argn++;
+    XtSetArg(args[argn], XtNdisplayCaret, (XtArgVal)False); argn++;
+    status_text = XtCreateManagedWidget("status_text",
+                                        asciiTextWidgetClass,
+                                        status_lower_paned, args, argn);
+
+
+
+    //XtVaGetValues(status_text, XtNheight, &height, XtNwidth, &width, NULL);
+    //printf("width, height: %d, %d\n", width, height);
+
+
+    //XawFormDoLayout(widget_tl_form, True);
+    XFlush(XtDisplay(widget_shell));
+}
+
+int xtwitter_xaw_init(){
+    Arg args[16];
+    int argn = 0;
+
+    XInitThreads();
+    XtSetLanguageProc(NULL, NULL, NULL);
+    widget_shell = XtAppInitialize(&context, PACKAGE, NULL, 0, &argn, NULL,
+                                   default_resources, NULL, 0);
+
+    argn = 0;
+    XtSetArg(args[argn], XtNallowVert, (XtArgVal)True); argn++;
+    XtSetArg(args[argn], XtNuseRight, (XtArgVal)True); argn++;
+    XtSetArg(args[argn], XtNforceBars, (XtArgVal)True); argn++;
+    widget_tl_viewport = XtCreateManagedWidget("wdget_tl_viewport",
+                                               viewportWidgetClass,
+                                               widget_shell,
+                                               args, argn);
+
+    argn = 0;
+    XtSetArg(args[argn], XtNdefaultDistance, (XtArgVal)10); argn++;
+    widget_tl_form = XtCreateManagedWidget("widget_tl_form",
+                                           formWidgetClass,
+                                           widget_tl_viewport, args, argn);
+
+    XtRealizeWidget(widget_shell);
+    XFlush(XtDisplay(widget_shell));
+
+    imlib_context_set_display(XtDisplay(widget_shell));
+    imlib_context_set_visual(DefaultVisual(XtDisplay(widget_shell), 0));
+    imlib_context_set_colormap(DefaultColormap(XtDisplay(widget_shell), 0));
+
+    return 0;
+}
+
 void xtwitter_update(twitter_t *twitter, const char *text)
 {
     int count;
@@ -431,12 +592,15 @@ int main(int argc, char *argv[]){
 
     regcomp(&id_regex, twitter->user, REG_EXTENDED | REG_NOSUB);
 
-    ret = xtwitter_x_init();
+    //ret = xtwitter_x_init();
+    ret = xtwitter_xaw_init();
     if(ret){
         fprintf(stderr, "xtwitter: error at xtwitter_init_x()\n");
         return EXIT_FAILURE;
     }
-    twitter->popup = xtwitter_x_popup;
+
+    //twitter->popup = xtwitter_x_popup;
+    twitter->popup = xtwitter_xaw_insert;
     pthread_t stream_thread;
 
     int status = pthread_create(&stream_thread,
@@ -450,6 +614,8 @@ int main(int argc, char *argv[]){
         daemonize();
     }
 
+    XtAppMainLoop(context);
+/*
     XEvent event;
     XSelectInput(display, window, ExposureMask);
     while(1){
@@ -473,9 +639,10 @@ int main(int argc, char *argv[]){
         }
         usleep(100000);
     }
+*/
 
 exit:
-    //pthread_join(stream_thread, NULL);
+    pthread_join(stream_thread, NULL);
     twitter_free(twitter);
     return EXIT_SUCCESS;
 }

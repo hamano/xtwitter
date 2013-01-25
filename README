@@ -4,11 +4,12 @@ Xtwitter is very tiny twitter client for X Window System.
 It'll works on Linux, and other UNIX-like operating systems.
 
 * Project URL
-  http://www.cuspy.org/xtwitter/
+  http://www.cuspy.org/wiki/xtwitter
 
 * Requirements
 
-  X.org
+  libX11
+  libXaw
   Imlib2
   libcurl
   liboauth
@@ -16,8 +17,8 @@ It'll works on Linux, and other UNIX-like operating systems.
 
 * Build
 
+  % autoreconf
   % ./configure
-
   % make
 
 * Configration

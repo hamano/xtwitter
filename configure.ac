@@ -11,6 +11,7 @@ AC_PROG_LIBTOOL
 
 # Checks for packages.
 PKG_CHECK_MODULES(X11, x11)
+PKG_CHECK_MODULES(XAW, xaw7)
 PKG_CHECK_MODULES(IMLIB, imlib2)
 PKG_CHECK_MODULES(CURL, libcurl)
 PKG_CHECK_MODULES(OAUTH, oauth)
@@ -25,6 +26,8 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([stdio.h stdlib.h string.h unistd.h pthread.h])
 AC_CHECK_HEADERS(X11/Xlib.h,,
     AC_MSG_ERROR([Please install libx11 development package]))
+AC_CHECK_HEADERS(X11/Intrinsic.h,,
+    AC_MSG_ERROR([Please install xaw7 development package]))
 AC_CHECK_HEADERS(Imlib2.h,,
     AC_MSG_ERROR([Please install libim development package]))
 AC_CHECK_HEADERS(json/json.h,,
