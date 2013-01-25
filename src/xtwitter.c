@@ -17,6 +17,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#define _GNU_SOURCE
+
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -232,9 +234,12 @@ int xtwitter_x_popup(void *config, twitter_status_t *status)
         text+=pos;
     }
 
+    char *name = NULL;
+    asprintf(&name, "@%s (%s)", status->user_screen_name, status->user_name);
     XmbDrawString(display, pixmap, user_fonts, gc, 5, 17,
-                  status->user->screen_name,
-                  strlen(status->user->screen_name));
+                  name,
+                  strlen(name));
+    free(name);
 
     image = imlib_load_image(image_path);
     if(image){

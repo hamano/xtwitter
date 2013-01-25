@@ -30,17 +30,15 @@
 #define TWITTER_SEARCH_URI "http://search.twitter.com/search.atom"
 
 typedef struct{
-    const char *id;
-    const char *screen_name;
-    const char *profile_image_url;
-}twitter_user_t;
-
-typedef struct{
     const char *created_at;
     const char *id;
     const char *text;
     const char *source;
-    const twitter_user_t *user;
+
+    const char *user_id;
+    const char *user_name;
+    const char *user_screen_name;
+    const char *user_profile_image_url;
     const struct twitter_status_t *rt;
 }twitter_status_t;
 
@@ -72,17 +70,18 @@ void twitter_free(twitter_t *twitter);
 int twitter_config(twitter_t *twitter);
 int twitter_xauth(twitter_t *twitter);
 
+
 //int twitter_fetch(twitter_t *twitter, const char *api_uri, GByteArray *buf);
 int twitter_update(twitter_t *twitter, const char *status);
 int twitter_count(const char *text);
 int twitter_shorten(twitter_t *twitter, const char *text, char *shortentext);
 
+twitter_status_t *twitter_status_new();
 void twitter_status_free(twitter_status_t *status);
 
 void twitter_unescape(char *dst, const char *src, size_t n);
 void twitter_xmlescape(char *dst, const char *src, size_t n);
 
-void twitter_status_print(twitter_status_t *status);
 void twitter_status_print(twitter_status_t *status);
 void twitter_status_dump(twitter_status_t *status);
 
