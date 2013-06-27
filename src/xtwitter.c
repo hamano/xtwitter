@@ -278,6 +278,23 @@ static char *default_resources[] = {
     NULL
 };
 
+char *strbrkdup(const char *text, int width){
+    int pos;
+    char *ret;
+    ret = malloc(strlen(text) * 2);
+    if(!ret){
+        return NULL;
+    }
+    *ret = '\0';
+    while(*text){
+        pos = utf8pos(text, width);
+        strncat(ret, text, pos);
+        strncat(ret, "\n", 1);
+        text+=pos;
+    }
+    return ret;
+}
+
 int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
 {
     static Widget status_paned = NULL;
@@ -330,6 +347,7 @@ int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
 
     char *name = NULL;
     twitter_status_t *rt = (twitter_status_t *)status->rt;
+    //static int count;
     if(rt){
         asprintf(&name, "@%s Retweeted by @%s (%s)",
                  rt->user_screen_name,
@@ -348,7 +366,6 @@ int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
         XtNresizeToPreferred, True,
         //XtNallowResize, True,
         NULL);
-
     free(name);
 
     status_lower_paned = XtVaCreateManagedWidget(
@@ -371,18 +388,36 @@ int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
         XtNshowGrip, False,
         NULL);
 
+    char *text = strbrkdup(status->text, 50);
+    status_text = XtVaCreateManagedWidget(
+        "status_text",
+        labelWidgetClass,
+        status_lower_paned,
+        XtNlabel, text,
+        XtNshowGrip, False,
+        XtNjustify, XtJustifyLeft,
+        XtNresizeToPreferred, True,
+        //XtNallowResize, True,
+        NULL);
+
+/*
     status_text = XtVaCreateManagedWidget(
         "status_text",
         asciiTextWidgetClass,
         status_lower_paned,
+        //status_paned,
         XtNstring, (XtArgVal)status->text,
-        XtNwrap, XawtextWrapLine,
+        XtNeditType, XawtextRead,
+        XtNwrap, XawtextWrapWord,
         XtNdisplayCaret, False,
+        //XtNfromVert, name_label,
+        //XtNwidth, width - 10,
+        //XtNheight, 65,
         NULL);
+*/
 
     //XtVaGetValues(status_text, XtNheight, &height, XtNwidth, &width, NULL);
     //printf("width, height: %d, %d\n", width, height);
-
     //XawFormDoLayout(widget_tl_form, True);
     XFlush(XtDisplay(widget_shell));
     return 0;
@@ -498,9 +533,11 @@ static void daemonize(void)
 void *xtwitter_stream_thread(void *arg){
     twitter_t *twitter = arg;
 
-    //while(1) sleep(10);
-    twitter_user_stream(twitter);
-    //twitter_public_stream(twitter);
+    if(twitter->search_word){
+        twitter_public_stream(twitter);
+    }else{
+        twitter_user_stream(twitter);
+    }
 
     return NULL;
 }
@@ -546,7 +583,7 @@ int main(int argc, char *argv[]){
     int opt_debug = 0;
     int opt_search = 0;
     int opt_daemonize = 0;
-    char opt_search_word[1024];
+    char *opt_search_word = NULL;
     char *opt_update = NULL;
     char *opt_count = NULL;
     char *opt_lang = NULL;
@@ -561,9 +598,9 @@ int main(int argc, char *argv[]){
         case 's':
 			opt_search = 1;
 			if(optarg[0] == '#'){
-				snprintf(opt_search_word, 1024, "%%23%s", optarg + 1);
+				asprintf(&opt_search_word, "%%23%s", optarg + 1);
 			}else{
-				snprintf(opt_search_word, 1024, "%s", optarg);
+				asprintf(&opt_search_word, "%s", optarg);
 			}
 			break;
         case 'l':
@@ -606,6 +643,10 @@ int main(int argc, char *argv[]){
         twitter->lang = opt_lang;
         printf("lang: %s\n", twitter->lang);
     }
+    if(opt_search){
+        twitter->search_word = opt_search_word;
+        printf("search_word: %s\n", twitter->search_word);
+    }
 
     if(opt_count){
         xtwitter_count(twitter, opt_count);
@@ -641,11 +682,11 @@ int main(int argc, char *argv[]){
 
     //twitter->popup = xtwitter_x_popup;
     twitter->popup = xtwitter_xaw_insert;
-    pthread_t stream_thread;
-
-    int status = pthread_create(&stream_thread,
-                                NULL, xtwitter_stream_thread, twitter);
-    if(status){
+    pthread_t thread;
+    int thread_status;
+    thread_status = pthread_create(&thread, NULL,
+                                   xtwitter_stream_thread, twitter);
+    if(thread_status){
         fprintf(stderr, "xtwitter: error at pthread_create()\n");
         return EXIT_FAILURE;
     }
@@ -656,7 +697,7 @@ int main(int argc, char *argv[]){
 
     xtwitter_xaw_loop();
 
-    pthread_join(stream_thread, NULL);
+    pthread_join(thread, NULL);
     twitter_free(twitter);
     return EXIT_SUCCESS;
 }

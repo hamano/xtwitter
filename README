@@ -29,4 +29,13 @@ It'll works on Linux, and other UNIX-like operating systems.
   pass=xxxxxxxx
   ^D
 
+  if you are using libcurl-nss, you need setup cert directory.
+
+    # apt-get install libnss3-tools
+    # mkdir -p /etc/pki/nssdb
+    # certutil -d /etc/pki/nssdb -N
+    # wget http://SVRSecure-G2-aia.verisign.com/SVRSecureG2.cer
+    # certutil -d /etc/pki/nssdb -A -n twitter -t C -i SVRSecureG2.cer
+
+
 Copyright (C) 2008-2013 Tsukasa Hamano <code@cuspy.org>

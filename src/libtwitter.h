@@ -63,6 +63,7 @@ typedef struct{
     int quiet;
     int error;
     int (*popup)(void *, twitter_status_t *);
+    char *search_word;
 }twitter_t;
 
 twitter_t *twitter_new();
