@@ -1,20 +1,8 @@
 /*
- * Xtwitter - xtwitter.c: twitter client for X
- * Copyright (C) 2008-2013 Tsukasa Hamano <code@cuspy.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * xtwitter.c - Xtwitter: twitter client for X
+ * Copyright (c) 2008-2014 HAMANO Tsukasa <code@cuspy.org>
+ * This software is released under the MIT License.
+ * See LICENSE file for more details.
  */
 
 #define _GNU_SOURCE
@@ -295,12 +283,12 @@ char *strbrkdup(const char *text, int width){
     return ret;
 }
 
-int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
+int xtwitter_xaw_insert(void *ctx, twitter_status_t *status)
 {
+    twitter_t *twitter = ctx;
     static Widget status_paned = NULL;
     static Widget status_prev_paned = NULL;
     Widget status_lower_paned = NULL;
-    Widget status_text, name_label, icon_label;
 
     int height, width;
     char image_name[PATH_MAX];
@@ -356,7 +344,9 @@ int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
         asprintf(&name, "@%s (%s)",
                  status->user_screen_name, status->user_name);
     }
-    name_label = XtVaCreateManagedWidget(
+
+    /* name_label = */
+    XtVaCreateManagedWidget(
         "name_label",
         labelWidgetClass,
         status_paned,
@@ -375,7 +365,8 @@ int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
         XtNorientation, (XtArgVal)XtorientHorizontal,
         NULL);
 
-    icon_label = XtVaCreateManagedWidget(
+    /* icon_label = */
+    XtVaCreateManagedWidget(
         "icon_label",
         labelWidgetClass,
         status_lower_paned,
@@ -389,7 +380,8 @@ int xtwitter_xaw_insert(twitter_t *twitter, twitter_status_t *status)
         NULL);
 
     char *text = strbrkdup(status->text, 50);
-    status_text = XtVaCreateManagedWidget(
+    /* status_text = */
+    XtVaCreateManagedWidget(
         "status_text",
         labelWidgetClass,
         status_lower_paned,
