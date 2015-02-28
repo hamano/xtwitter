@@ -1,6 +1,6 @@
 /*
  * xtwitter.c - Xtwitter: twitter client for X
- * Copyright (c) 2008-2014 HAMANO Tsukasa <code@cuspy.org>
+ * Copyright (c) 2008-2015 HAMANO Tsukasa <code@cuspy.org>
  * This software is released under the MIT License.
  * See LICENSE file for more details.
  */
